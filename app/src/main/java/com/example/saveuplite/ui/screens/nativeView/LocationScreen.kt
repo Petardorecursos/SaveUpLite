@@ -6,6 +6,7 @@ import android.Manifest
 import android.content.Intent // 1. Importar Intent
 import android.content.pm.PackageManager
 import android.net.Uri // 2. Importar Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.launch
@@ -40,14 +41,22 @@ fun LocationScreen(
     // Permiso de ubicación
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted -> hasPermission = granted }
+        onResult = { granted ->
+            Log.d("LocationScreen", "Permission granted: $granted")
+            hasPermission = granted
+        }
     )
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        hasPermission = ContextCompat.checkSelfPermission(
+        val permissionGranted = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        if (!hasPermission) launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        Log.d("LocationScreen", "Initial permission check: $permissionGranted")
+        hasPermission = permissionGranted
+        if (!hasPermission) {
+            Log.d("LocationScreen", "Requesting location permission")
+            launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
     }
 
     val locationState by viewModel.location.collectAsState()
@@ -89,7 +98,15 @@ fun LocationScreen(
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(24.dp))
 
             // Botón para obtener la ubicación
-            androidx.compose.material3.Button(onClick = { if (hasPermission) viewModel.getLocation(context) }) {
+            androidx.compose.material3.Button(onClick = {
+                Log.d("LocationScreen", "Get Location button clicked, hasPermission: $hasPermission")
+                if (hasPermission) {
+                    viewModel.getLocation(context)
+                } else {
+                    Log.d("LocationScreen", "Permission not granted, requesting again.")
+                    launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                }
+            }) {
                 androidx.compose.material3.Text("Obtener Ubicación")
             }
 
