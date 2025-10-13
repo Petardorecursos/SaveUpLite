@@ -1,5 +1,3 @@
-// G:/Downloads MOZILLA/saveupLITE_V4R/saveupLITE/app/src/main/java/com/example/saveuplite/ui/navigation/NavGraph.kt
-
 package com.example.saveuplite.ui.navigation
 
 import androidx.compose.animation.*
@@ -11,6 +9,7 @@ import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
 import com.example.saveuplite.ui.screens.home.HomeScreen
 import com.example.saveuplite.ui.screens.form.FormScreen
+import com.example.saveuplite.ui.screens.list.ListScreen // 👈 nuevo import
 import com.example.saveuplite.ui.screens.nativeView.LocationScreen
 import com.example.saveuplite.viewmodel.LocationViewModel
 
@@ -18,6 +17,7 @@ object Routes {
     const val HOME = "home"
     const val FORM = "form"
     const val LOCATION = "location"
+    const val LIST = "list"
 }
 
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
@@ -39,5 +39,8 @@ fun AppNavHost(navController: NavHostController) {
             // 3. Pasar el navController a LocationScreen
             LocationScreen(viewModel = viewModel, navController = navController)
         }
+
+        // 🧾 Nueva ruta para listar los registros
+        composable(Routes.LIST) { ListScreen(navController) }
     }
 }

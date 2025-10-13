@@ -31,7 +31,6 @@ class DatabaseHelper(context: Context) :
                 $COL_DESCRIPCION TEXT
             )
         """.trimIndent()
-
         db.execSQL(createTable)
     }
 
@@ -40,7 +39,7 @@ class DatabaseHelper(context: Context) :
         onCreate(db)
     }
 
-    // 🟩 Función para insertar un registro
+    // 🟩 Insertar un registro
     fun insertarUsuario(nombre: String, rut: String, ingreso: Int, descripcion: String): Boolean {
         val db = writableDatabase
         val values = ContentValues().apply {
@@ -54,4 +53,35 @@ class DatabaseHelper(context: Context) :
         db.close()
         return result != -1L
     }
+
+    // 🟦 Obtener todos los registros
+    fun obtenerUsuarios(): List<UsuarioDB> {
+        val lista = mutableListOf<UsuarioDB>()
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT * FROM $TABLE_NAME", null)
+
+        if (cursor.moveToFirst()) {
+            do {
+                val id = cursor.getInt(cursor.getColumnIndexOrThrow(COL_ID))
+                val nombre = cursor.getString(cursor.getColumnIndexOrThrow(COL_NOMBRE))
+                val rut = cursor.getString(cursor.getColumnIndexOrThrow(COL_RUT))
+                val ingreso = cursor.getInt(cursor.getColumnIndexOrThrow(COL_INGRESO))
+                val descripcion = cursor.getString(cursor.getColumnIndexOrThrow(COL_DESCRIPCION))
+                lista.add(UsuarioDB(id, nombre, rut, ingreso, descripcion))
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return lista
+    }
 }
+
+// 💾 Clase de datos para los registros
+data class UsuarioDB(
+    val id: Int,
+    val nombre: String,
+    val rut: String,
+    val ingreso: Int,
+    val descripcion: String
+)

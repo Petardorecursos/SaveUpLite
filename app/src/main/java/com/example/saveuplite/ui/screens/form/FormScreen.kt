@@ -212,6 +212,27 @@ fun FormScreen(navController: NavHostController) {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // 🧾 Nuevo botón para listar registros
+                Button(
+                    onClick = { navController.navigate(Routes.LIST) },
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF80CBC4),
+                        contentColor = Color.Black
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text(
+                        "Listar",
+                        fontSize = MaterialTheme.typography.titleMedium.fontSize,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // 🔙 Botón volver
                 TextButton(
                     onClick = { navController.popBackStack() },

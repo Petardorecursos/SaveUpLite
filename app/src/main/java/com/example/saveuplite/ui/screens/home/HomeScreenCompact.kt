@@ -19,7 +19,6 @@ import com.example.saveuplite.ui.navigation.Routes
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreenCompact(navController: NavHostController) {
-
     // Fondo degradado verde -> negro
     val gradient = Brush.verticalGradient(
         colors = listOf(
