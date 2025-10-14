@@ -11,6 +11,7 @@ import com.example.saveuplite.ui.screens.home.HomeScreen
 import com.example.saveuplite.ui.screens.form.FormScreen
 import com.example.saveuplite.ui.screens.list.ListScreen // 👈 nuevo import
 import com.example.saveuplite.ui.screens.nativeView.LocationScreen
+import com.example.saveuplite.ui.screens.nativeView.NotificationScreen
 import com.example.saveuplite.viewmodel.LocationViewModel
 
 object Routes {
@@ -18,6 +19,7 @@ object Routes {
     const val FORM = "form"
     const val LOCATION = "location"
     const val LIST = "list"
+    const val NOTIFICATION = "notification"
 }
 
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
@@ -33,6 +35,7 @@ fun AppNavHost(navController: NavHostController) {
     ) {
         composable(Routes.HOME) { HomeScreen(navController) }
         composable(Routes.FORM) { FormScreen(navController) }
+        composable(Routes.NOTIFICATION) { NotificationScreen(navController) }
         composable(Routes.LOCATION) {
             // 2. Usar viewModel() para obtener la instancia correctamente
             val viewModel: LocationViewModel = viewModel()

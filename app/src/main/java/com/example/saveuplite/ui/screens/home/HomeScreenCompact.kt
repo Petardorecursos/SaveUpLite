@@ -89,6 +89,21 @@ fun HomeScreenCompact(navController: NavHostController) {
                 Text("Probar ubicación", fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = { navController.navigate(Routes.NOTIFICATION) },
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White
+                ),
+                modifier = Modifier
+                    .width(220.dp)
+                    .height(48.dp)
+            ) {
+                Text("Probar notificaciones", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(

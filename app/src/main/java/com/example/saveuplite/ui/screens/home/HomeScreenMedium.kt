@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.example.saveuplite.ui.navigation.Routes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,8 +23,16 @@ fun HomeScreenMedium(navController: NavHostController) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Columna izquierda")
-                Button(onClick = { /* acción */ }) {
-                    Text("Botón Medium")
+                Button(onClick = { navController.navigate(Routes.FORM) }) {
+                    Text("Comenzar")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(onClick = { navController.navigate(Routes.LOCATION) }) {
+                    Text("Probar ubicación")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(onClick = { navController.navigate(Routes.NOTIFICATION) }) {
+                    Text("Probar notificaciones")
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
