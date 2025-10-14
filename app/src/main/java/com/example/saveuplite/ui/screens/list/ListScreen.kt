@@ -38,12 +38,12 @@ fun ListScreen(navController: NavHostController) {
         usuarios.addAll(dbHelper.obtenerUsuarios())
     }
 
-    // 🎨 Fondo degradado verde → negro
+    // 🎨 Fondo degradado que utiliza los colores del tema
     val gradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF00C853), // verde brillante
-            Color(0xFF004D40), // verde oscuro
-            Color.Black         // negro base
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.background
         )
     )
 
@@ -54,12 +54,12 @@ fun ListScreen(navController: NavHostController) {
                 title = {
                     androidx.compose.material3.Text(
                         "Lista de Usuarios",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 },
                 colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF004D40)
+                    containerColor = MaterialTheme.colorScheme.primary
                 ),
                 // 3. Añadir el botón de navegación para volver
                 navigationIcon = {
@@ -67,7 +67,7 @@ fun ListScreen(navController: NavHostController) {
                         androidx.compose.material3.Icon(
                             imageVector = Icons.Filled.ArrowBack,
                             contentDescription = "Volver atrás",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }
@@ -84,7 +84,7 @@ fun ListScreen(navController: NavHostController) {
                 // Mensaje cuando no hay datos
                 androidx.compose.material3.Text(
                     text = "No hay usuarios registrados 😢",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.align(Alignment.Center)
                 )
@@ -98,7 +98,7 @@ fun ListScreen(navController: NavHostController) {
                 ) {
                     items(usuarios) { usuario ->
                         androidx.compose.material3.Card(
-                            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF1B5E20)),
+                            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -106,10 +106,10 @@ fun ListScreen(navController: NavHostController) {
                                 modifier = Modifier
                                     .padding(16.dp)
                             ) {
-                                androidx.compose.material3.Text("👤 ${usuario.nombre}", color = Color.White, fontWeight = FontWeight.Bold)
-                                androidx.compose.material3.Text("🆔 RUT: ${usuario.rut}", color = Color(0xFFB2DFDB))
-                                androidx.compose.material3.Text("💰 Ingreso: ${usuario.ingreso} CLP", color = Color(0xFFB2DFDB))
-                                androidx.compose.material3.Text("📝 ${usuario.descripcion}", color = Color(0xFFB2DFDB))
+                                androidx.compose.material3.Text("👤 ${usuario.nombre}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                androidx.compose.material3.Text("🆔 RUT: ${usuario.rut}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                androidx.compose.material3.Text("💰 Ingreso: ${usuario.ingreso} CLP", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                androidx.compose.material3.Text("📝 ${usuario.descripcion}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }

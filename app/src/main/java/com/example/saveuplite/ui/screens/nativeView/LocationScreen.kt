@@ -10,15 +10,19 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.launch
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -61,12 +65,31 @@ fun LocationScreen(
 
     val locationState by viewModel.location.collectAsState()
 
+    // Fondo degradado que utiliza los colores del tema
+    val gradient = Brush.verticalGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.background
+        )
+    )
+
     androidx.compose.material3.Scaffold(
-        topBar = { androidx.compose.material3.TopAppBar(title = { androidx.compose.material3.Text("Ubicación Actual") }) }
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = { androidx.compose.material3.Text("Ubicación Actual") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        }
     ) { padding ->
-        androidx.compose.foundation.layout.Column(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(gradient)
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
@@ -75,7 +98,8 @@ fun LocationScreen(
             androidx.compose.material3.Text(
                 text = "Obtén tus coordenadas y visualízalas en el mapa.",
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(24.dp))
@@ -86,12 +110,14 @@ fun LocationScreen(
                     text = "Latitud: ${locationState?.latitude}\nLongitud: ${locationState?.longitude}",
                     fontSize = 18.sp,
                     textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             } else {
                 androidx.compose.material3.Text(
                     text = "Presiona 'Obtener ubicación' para empezar.",
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
 
