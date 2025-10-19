@@ -53,8 +53,11 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
-    // Íconos extendidos para Material
+    // Íconos extendidos para Material (soluciona el error de "Remove")
     implementation("androidx.compose.material:material-icons-extended-android:1.6.8")
+
+    // Coil para carga de imágenes
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     // Material 3
     implementation("androidx.compose.material3:material3:1.2.0")

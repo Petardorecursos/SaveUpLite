@@ -1,43 +1,117 @@
 package com.example.saveuplite.ui.screens.dashboard
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import com.example.saveuplite.model.EventoSaldo
 import com.example.saveuplite.model.Saldo
 import com.example.saveuplite.ui.navigation.Routes
 import com.example.saveuplite.viewmodel.SaldoViewModel
 import com.example.saveuplite.viewmodel.UsuarioViewModel
+import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    navController: NavHostController, // <--- Parámetro añadido
+    navController: NavHostController,
     usuarioViewModel: UsuarioViewModel = viewModel(),
     saldoViewModel: SaldoViewModel = viewModel()
 ) {
     val saldoState by saldoViewModel.uiState.collectAsState()
     val usuarioState by usuarioViewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val context = LocalContext.current
+
+    // --- Estados para la imagen de perfil ---
+    var profileImageUri by remember { mutableStateOf<Uri?>(null) }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    // --- ESTADOS FALTANTES: Declara showDialog y tipoMovimiento aquí ---
+    var showDialog by remember { mutableStateOf(false) }
+    var tipoMovimiento by remember { mutableStateOf(EventoSaldo.INGRESO) } // Initial value can be INGRESO or GASTO
+    // -------------------------------------------------------
+
+    // --- Lanzador para la cámara ---
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) {
+        if (it) {
+            // La foto fue tomada exitosamente, la URI ya está en `profileImageUri`
+            // No hacemos nada aquí, ya que el URI ya está actualizado
+        }
+    }
+
+    // --- Lanzador para la galería ---
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
+        profileImageUri = it
+    }
+
+    // --- Gestión de permisos para la cámara ---
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val photoFile = File(context.externalCacheDir, "profile_image_${System.currentTimeMillis()}.jpg")
+            profileImageUri = FileProvider.getUriForFile(context, "com.example.saveuplite.fileprovider", photoFile)
+            cameraLauncher.launch(profileImageUri) // Lanzar la cámara con el URI
+        } else {
+            Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // --- Gestión de permisos para la galería ---
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            galleryLauncher.launch("image/*") // Lanzar la galería
+        } else {
+            Toast.makeText(context, "Permiso de galería denegado", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Cargar los datos del saldo cuando la pantalla se muestra por primera vez
     LaunchedEffect(usuarioState.currentUser) {
@@ -45,10 +119,6 @@ fun DashboardScreen(
             saldoViewModel.cargarDatosSaldo(it)
         }
     }
-
-    // --- Estado para el diálogo de añadir movimiento ---
-    var showDialog by remember { mutableStateOf(false) }
-    var tipoMovimiento by remember { mutableStateOf(EventoSaldo.INGRESO) }
 
     val gradient = Brush.verticalGradient(
         colors = listOf(
@@ -58,51 +128,145 @@ fun DashboardScreen(
         )
     )
 
-    Scaffold(
-        containerColor = Color.Transparent
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(gradient)
-                .padding(padding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // --- Card del Saldo Actual ---
-            BalanceCard(saldoActual = saldoState.saldoActual)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
+                    // --- Ícono / Imagen de Perfil ---
+                    Box(modifier = Modifier
+                        .size(96.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .clickable { showImageSourceDialog = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (profileImageUri != null) {
+                            AsyncImage(
+                                model = profileImageUri,
+                                contentDescription = "Imagen de perfil",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Ícono de usuario por defecto",
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
 
-            // --- Botones de Acción ---
-            ActionButtons(
-                onIngresoClick = {
-                    tipoMovimiento = EventoSaldo.INGRESO
-                    showDialog = true
-                },
-                onGastoClick = {
-                    tipoMovimiento = EventoSaldo.GASTO
-                    showDialog = true
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // --- Nombre del Usuario ---
+                    Text(
+                        text = usuarioState.currentUser?.nombre ?: "Invitado",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = usuarioState.currentUser?.email ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Otros elementos del menú aquí (opcional)
+                    // Por ejemplo, NavigationDrawerItem(label = { Text("Configuración") }, selected = false, onClick = { /*TODO*/ })
+
+                    Spacer(modifier = Modifier.weight(1f)) // Empuja el botón de cerrar sesión hacia abajo
+
+                    // --- Botón de Cerrar Sesión ---
+                    Button(
+                        onClick = {
+                            scope.launch { drawerState.close() } // Cierra el drawer primero
+                            usuarioViewModel.logout()
+                            navController.navigate(Routes.AUTH) {
+                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Cerrar Sesión", color = MaterialTheme.colorScheme.onError)
+                    }
                 }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // --- Botón para Funciones Adicionales ---
-            OutlinedButton(
-                onClick = { navController.navigate(Routes.LEGACY_HOME) }, // Navegará a la pantalla antigua
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Funciones Adicionales")
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.Default.ArrowForward, contentDescription = "Ir a funciones adicionales")
             }
+        }
+    ) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("Dashboard") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            scope.launch { drawerState.open() }
+                        }) {
+                            Icon(Icons.Filled.Menu, contentDescription = "Abrir menú", tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(gradient)
+                    .padding(padding)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // --- Card del Saldo Actual ---
+                BalanceCard(saldoActual = saldoState.saldoActual)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- Botones de Acción ---
+                ActionButtons(
+                    onIngresoClick = {
+                        tipoMovimiento = EventoSaldo.INGRESO
+                        showDialog = true
+                    },
+                    onGastoClick = {
+                        tipoMovimiento = EventoSaldo.GASTO
+                        showDialog = true
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- Botón para Funciones Adicionales ---
+                OutlinedButton(
+                    onClick = { navController.navigate(Routes.LEGACY_HOME) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Funciones Adicionales")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(Icons.Default.ArrowForward, contentDescription = "Ir a funciones adicionales")
+                }
 
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // --- Historial de Movimientos ---
-            TransactionHistory(historial = saldoState.historialMovimientos)
+                // --- Historial de Movimientos ---
+                TransactionHistory(historial = saldoState.historialMovimientos)
+            }
         }
     }
 
@@ -119,6 +283,41 @@ fun DashboardScreen(
             }
         )
     }
+
+    // --- Diálogo para elegir origen de imagen ---
+    if (showImageSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showImageSourceDialog = false },
+            title = { Text("Cambiar Foto de Perfil") },
+            text = {
+                Column {
+                    TextButton(onClick = {
+                        showImageSourceDialog = false
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }) {
+                        Text("Tomar Foto")
+                    }
+                    TextButton(onClick = {
+                        showImageSourceDialog = false
+                        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            Manifest.permission.READ_MEDIA_IMAGES
+                        } else {
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                        }
+                        galleryPermissionLauncher.launch(permission)
+                    }) {
+                        Text("Seleccionar de Galería")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showImageSourceDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 
@@ -127,7 +326,7 @@ fun BalanceCard(saldoActual: Float) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface) // Usar color del tema
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -136,7 +335,7 @@ fun BalanceCard(saldoActual: Float) {
             Text("Saldo Actual", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "$ ${"%.2f".format(saldoActual)}",
+                text = "$ ${ "%.2f".format(saldoActual)}",
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -154,7 +353,7 @@ fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
         Button(
             onClick = onIngresoClick,
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary) // Usar color del tema
         ) {
             Icon(Icons.Default.Add, contentDescription = "Ingreso")
             Spacer(modifier = Modifier.width(8.dp))
@@ -163,7 +362,7 @@ fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
         Button(
             onClick = onGastoClick,
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) // Usar color del tema
         ) {
             Icon(Icons.Default.Remove, contentDescription = "Gasto")
             Spacer(modifier = Modifier.width(8.dp))
@@ -217,7 +416,7 @@ fun TransactionItem(item: Saldo) {
                 )
             }
             Text(
-                text = "$ ${"%.2f".format(item.monto)}",
+                text = "$ ${ "%.2f".format(item.monto)}",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface
@@ -242,7 +441,7 @@ fun AddTransactionDialog(
         text = {
             OutlinedTextField(
                 value = monto,
-                onValueChange = { monto = it },
+                onValueChange = { monto = it }, // <-- ¡CORREGIDO AQUÍ!
                 label = { Text("Monto") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
