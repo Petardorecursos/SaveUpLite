@@ -53,6 +53,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
+    // Íconos extendidos para Material
+    implementation("androidx.compose.material:material-icons-extended-android:1.6.8")
+
     // Material 3
     implementation("androidx.compose.material3:material3:1.2.0")
     implementation("androidx.compose.material3:material3-window-size-class:1.2.0")

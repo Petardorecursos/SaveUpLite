@@ -7,10 +7,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.saveuplite.ui.navigation.Routes
+import com.example.saveuplite.viewmodel.UsuarioViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreenExpanded(navController: NavHostController) {
+fun HomeScreenExpanded(
+    navController: NavHostController,
+    usuarioViewModel: UsuarioViewModel = viewModel() // <-- Añadido aquí
+) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Home - Expanded") }) }
     ) { padding ->

@@ -7,6 +7,7 @@ import androidx.navigation.NavHostController
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
 import com.example.saveuplite.ui.screens.auth.AuthScreen
+import com.example.saveuplite.ui.screens.dashboard.DashboardScreen
 import com.example.saveuplite.ui.screens.home.HomeScreen
 import com.example.saveuplite.ui.screens.form.FormScreen
 import com.example.saveuplite.ui.screens.list.ListScreen
@@ -17,11 +18,12 @@ import com.example.saveuplite.viewmodel.UsuarioViewModel
 
 object Routes {
     const val HOME = "home"
+    const val LEGACY_HOME = "legacyhome"
     const val FORM = "form"
     const val LOCATION = "location"
     const val LIST = "list"
     const val NOTIFICATION = "notification"
-    const val AUTH = "auth" // <-- Ruta añadida
+    const val AUTH = "auth"
 }
 
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
@@ -31,16 +33,19 @@ fun AppNavHost(navController: NavHostController) {
 
     AnimatedNavHost(
         navController = navController,
-        startDestination = Routes.AUTH, // <-- Cambiado spara que inicie en Auth
+        startDestination = Routes.AUTH,
         enterTransition = { fadeIn() + slideInHorizontally(initialOffsetX = { 300 }) },
         exitTransition = { fadeOut() + slideOutHorizontally(targetOffsetX = { -300 }) },
         popEnterTransition = { fadeIn() + slideInHorizontally(initialOffsetX = { -300 }) },
         popExitTransition = { fadeOut() + slideOutHorizontally(targetOffsetX = { 300 }) }
     ) {
-        // --- Nueva ruta de autenticación ---
+        // --- Flujo de Autenticación y Dashboard ---
         composable(Routes.AUTH) { AuthScreen(navController, usuarioViewModel) }
+        composable(Routes.HOME) { DashboardScreen(navController, usuarioViewModel) } // El nuevo Home
 
-        composable(Routes.HOME) { HomeScreen(navController) }
+        // --- Rutas de funciones adicionales ---
+        composable(Routes.LEGACY_HOME) { HomeScreen(navController, usuarioViewModel) } // <-- ¡Ajuste realizado aquí!
+
         composable(Routes.FORM) { FormScreen(navController) }
         composable(Routes.NOTIFICATION) { NotificationScreen(navController) }
         composable(Routes.LOCATION) {

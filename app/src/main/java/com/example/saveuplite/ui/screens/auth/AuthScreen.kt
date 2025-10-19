@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.saveuplite.ui.navigation.Routes
@@ -66,35 +67,36 @@ fun AuthScreen(
         )
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (isLoginScreen) "Iniciar Sesión" else "Registro") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(gradient)
-                .padding(padding),
-            contentAlignment = Alignment.Center
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(gradient)
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // --- Título de la App ---
+            Text(
+                text = "SaveUp Lite",
+                fontSize = 42.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- Tarjeta de Formulario ---
             Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
                     modifier = Modifier
                         .padding(24.dp)
-                        .verticalScroll(rememberScrollState()) // Para que no se desborde en pantallas pequeñas
+                        .verticalScroll(rememberScrollState())
                 ) {
                     Text(
                         text = if (isLoginScreen) "Bienvenido de Nuevo" else "Crea tu Cuenta",
@@ -103,10 +105,9 @@ fun AuthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
-
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // --- CAMPOS DEL FORMULARIO ---
+                    // --- Campos del Formulario ---
                     if (!isLoginScreen) {
                         OutlinedTextField(value = rut, onValueChange = { rut = it }, label = { Text("RUT") }, modifier = Modifier.fillMaxWidth())
                         Spacer(modifier = Modifier.height(8.dp))
@@ -115,14 +116,12 @@ fun AuthScreen(
                         OutlinedTextField(value = apellido, onValueChange = { apellido = it }, label = { Text("Apellido") }, modifier = Modifier.fillMaxWidth())
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-
                     OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = contrasena, onValueChange = { contrasena = it }, label = { Text("Contraseña") }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
-
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // --- BOTÓN PRINCIPAL Y LOADING ---
+                    // --- Botón Principal y Loading ---
                     if (uiState.isLoading) {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                     } else {
@@ -139,10 +138,9 @@ fun AuthScreen(
                             Text(if (isLoginScreen) "Iniciar Sesión" else "Registrarme")
                         }
                     }
-
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // --- BOTÓN PARA CAMBIAR DE PANTALLA ---
+                    // --- Botón para Cambiar de Pantalla ---
                     TextButton(onClick = { isLoginScreen = !isLoginScreen }) {
                         Text(if (isLoginScreen) "¿No tienes cuenta? Regístrate" else "Ya tengo una cuenta")
                     }
