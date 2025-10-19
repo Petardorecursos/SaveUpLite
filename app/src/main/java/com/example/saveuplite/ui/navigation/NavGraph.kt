@@ -2,17 +2,18 @@ package com.example.saveuplite.ui.navigation
 
 import androidx.compose.animation.*
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.viewmodel.compose.viewModel // 1. Importar el viewModel de compose
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.navigation
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
+import com.example.saveuplite.ui.screens.auth.AuthScreen
 import com.example.saveuplite.ui.screens.home.HomeScreen
 import com.example.saveuplite.ui.screens.form.FormScreen
-import com.example.saveuplite.ui.screens.list.ListScreen // 👈 nuevo import
+import com.example.saveuplite.ui.screens.list.ListScreen
 import com.example.saveuplite.ui.screens.nativeView.LocationScreen
 import com.example.saveuplite.ui.screens.nativeView.NotificationScreen
 import com.example.saveuplite.viewmodel.LocationViewModel
+import com.example.saveuplite.viewmodel.UsuarioViewModel
 
 object Routes {
     const val HOME = "home"
@@ -20,30 +21,32 @@ object Routes {
     const val LOCATION = "location"
     const val LIST = "list"
     const val NOTIFICATION = "notification"
+    const val AUTH = "auth" // <-- Ruta añadida
 }
 
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
 @Composable
 fun AppNavHost(navController: NavHostController) {
+    val usuarioViewModel: UsuarioViewModel = viewModel()
+
     AnimatedNavHost(
         navController = navController,
-        startDestination = Routes.HOME,
-        enterTransition = { androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInHorizontally(initialOffsetX = { 300 }) },
-        exitTransition = { androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutHorizontally(targetOffsetX = { -300 }) },
-        popEnterTransition = { androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInHorizontally(initialOffsetX = { -300 }) },
-        popExitTransition = { androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutHorizontally(targetOffsetX = { 300 }) }
+        startDestination = Routes.AUTH, // <-- Cambiado spara que inicie en Auth
+        enterTransition = { fadeIn() + slideInHorizontally(initialOffsetX = { 300 }) },
+        exitTransition = { fadeOut() + slideOutHorizontally(targetOffsetX = { -300 }) },
+        popEnterTransition = { fadeIn() + slideInHorizontally(initialOffsetX = { -300 }) },
+        popExitTransition = { fadeOut() + slideOutHorizontally(targetOffsetX = { 300 }) }
     ) {
+        // --- Nueva ruta de autenticación ---
+        composable(Routes.AUTH) { AuthScreen(navController, usuarioViewModel) }
+
         composable(Routes.HOME) { HomeScreen(navController) }
         composable(Routes.FORM) { FormScreen(navController) }
         composable(Routes.NOTIFICATION) { NotificationScreen(navController) }
         composable(Routes.LOCATION) {
-            // 2. Usar viewModel() para obtener la instancia correctamente
-            val viewModel: LocationViewModel = viewModel()
-            // 3. Pasar el navController a LocationScreen
-            LocationScreen(viewModel = viewModel, navController = navController)
+            val locationViewModel: LocationViewModel = viewModel()
+            LocationScreen(viewModel = locationViewModel, navController = navController)
         }
-
-        // 🧾 Nueva ruta para listar los registros
         composable(Routes.LIST) { ListScreen(navController) }
     }
 }

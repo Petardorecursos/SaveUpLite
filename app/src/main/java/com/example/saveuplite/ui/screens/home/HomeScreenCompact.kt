@@ -13,13 +13,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.saveuplite.ui.navigation.Routes
-import androidx.compose.foundation.layout.systemBarsPadding
+import com.example.saveuplite.viewmodel.UsuarioViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreenCompact(navController: NavHostController) {
+fun HomeScreenCompact(
+    navController: NavHostController,
+    usuarioViewModel: UsuarioViewModel = viewModel()
+) {
     val gradient = Brush.verticalGradient(
         colors = listOf(
             MaterialTheme.colorScheme.primary,
@@ -32,18 +36,16 @@ fun HomeScreenCompact(navController: NavHostController) {
         modifier = Modifier
             .fillMaxSize()
             .background(gradient)
-            .systemBarsPadding()
     ) {
-        // <-- Cambiado: se usa fillMaxHeight(0.7f) y align(Alignment.Center)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.7f)   // ocupa el 70% de la pantalla vertical
-                .align(Alignment.Center) // centra la tarjeta verticalmente
+                .fillMaxHeight(0.8f)
+                .align(Alignment.Center)
                 .padding(24.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = MaterialTheme.colorScheme.surface
             )
         ) {
             Column(
@@ -51,9 +53,8 @@ fun HomeScreenCompact(navController: NavHostController) {
                     .fillMaxSize()
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Top
+                verticalArrangement = Arrangement.Top // Alineado arriba para dar espacio
             ) {
-                // ... (tu contenido sin cambios) ...
                 Text(
                     text = "SaveUp Lite",
                     color = MaterialTheme.colorScheme.onSurface,
@@ -73,59 +74,52 @@ fun HomeScreenCompact(navController: NavHostController) {
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                Button(
-                    onClick = { navController.navigate(Routes.FORM) },
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    modifier = Modifier
-                        .width(220.dp)
-                        .height(56.dp)
-                ) {
-                    Text("Comenzar", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
+                // Botones de funciones
                 OutlinedButton(
                     onClick = { navController.navigate(Routes.LOCATION) },
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                    modifier = Modifier
-                        .width(200.dp)
-                        .height(48.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Probar ubicación", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("Probar ubicación")
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedButton(
                     onClick = { navController.navigate(Routes.NOTIFICATION) },
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                    modifier = Modifier
-                        .width(200.dp)
-                        .height(48.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Probar notificación", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text("Probar notificación")
+                }
+                 Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedButton(
+                    onClick = { navController.navigate(Routes.FORM) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Ir al Formulario")
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.weight(1f)) // Empuja el botón de logout hacia abajo
 
-                Text(
-                    text = "Versión Lite • Simple y poderosa",
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontSize = 9.sp
-                )
+                // --- Botón para Cerrar Sesión ---
+                Button(
+                    onClick = {
+                        usuarioViewModel.logout()
+                        navController.navigate(Routes.AUTH) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
+                    },
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error, // Color distintivo
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Text("Cerrar Sesión", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
