@@ -19,6 +19,7 @@ class MainActivity : ComponentActivity() {
                 // Creamos el controlador de navegación
                 val navController = rememberNavController()
                 // Cargamos el NavHost con las pantallas
+                // God
                 AppNavHost(navController = navController)
             }
         }
