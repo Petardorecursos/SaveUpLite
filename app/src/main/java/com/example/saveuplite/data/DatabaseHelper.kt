@@ -14,7 +14,7 @@ class DatabaseHelper(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "saveup.db"
-        private const val DATABASE_VERSION = 2 // <-- ¡VERSION ACTUALIZADA A 2!
+        private const val DATABASE_VERSION = 3
 
         // Tablas
         const val TABLE_FORM = "usuarios"
@@ -155,10 +155,10 @@ class DatabaseHelper(context: Context) :
 
     fun obtenerSaldoActual(usuarioRut: String): Float {
         val db = readableDatabase
-        val cursor = db.query(TABLE_SALDO, arrayOf(COL_SALDO_MONTO), "$COL_SALDO_RUT_USUARIO = ?", arrayOf(usuarioRut), null, null, "$COL_SALDO_FECHA DESC", "1")
+        val cursor = db.rawQuery("SELECT SUM($COL_SALDO_MONTO) FROM $TABLE_SALDO WHERE $COL_SALDO_RUT_USUARIO = ?", arrayOf(usuarioRut))
         var saldoActual = 0f
         if (cursor.moveToFirst()) {
-            saldoActual = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_SALDO_MONTO))
+            saldoActual = cursor.getFloat(0)
         }
         cursor.close()
         db.close()

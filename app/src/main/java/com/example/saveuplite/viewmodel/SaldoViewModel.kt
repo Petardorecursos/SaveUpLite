@@ -29,14 +29,10 @@ class SaldoViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(SaldoUiState())
     val uiState = _uiState.asStateFlow()
 
-    /**
-     * Carga los datos iniciales del saldo (el monto actual y el historial) para un usuario.
-     */
     fun cargarDatosSaldo(usuarioRut: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            // Obtener saldo y historial en un hilo de fondo
             val saldo = withContext(Dispatchers.IO) {
                 dbHelper.obtenerSaldoActual(usuarioRut)
             }
@@ -54,9 +50,6 @@ class SaldoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Registra un nuevo movimiento (ingreso o gasto) y actualiza el estado.
-     */
     fun agregarMovimiento(usuarioRut: String, montoMovimiento: Float, tipo: EventoSaldo) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
@@ -66,40 +59,33 @@ class SaldoViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
 
-            // --- Lógica de Negocio Principal ---
-            // 1. Obtener el saldo actual desde el estado
-            val saldoAnterior = _uiState.value.saldoActual
-
-            // 2. Calcular el nuevo saldo total
-            val nuevoSaldoTotal = when (tipo) {
-                EventoSaldo.INGRESO -> saldoAnterior + montoMovimiento
-                EventoSaldo.GASTO -> saldoAnterior - montoMovimiento
-                else -> saldoAnterior // No modificar para otros tipos por ahora
-            }
-            
-            if (nuevoSaldoTotal < 0) {
-                 _uiState.update { it.copy(isLoading = false, errorMessage = "No tienes saldo suficiente.") }
+            // --- Lógica de Negocio Corregida ---
+            val saldoActual = _uiState.value.saldoActual
+            if (tipo == EventoSaldo.GASTO && montoMovimiento > saldoActual) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "No tienes saldo suficiente.") }
                 return@launch
             }
 
-            // 3. Crear el nuevo registro de Saldo
+            // 1. Determinar el monto a guardar (positivo o negativo)
+            val montoParaGuardar = if (tipo == EventoSaldo.INGRESO) montoMovimiento else -montoMovimiento
+
+            // 2. Crear el nuevo registro de Saldo con el monto del MOVIMIENTO
             val nuevoMovimiento = Saldo(
-                idSaldo = 0, // El ID es autoincremental, la BD lo asignará
-                monto = nuevoSaldoTotal, // Guardamos el nuevo total
+                idSaldo = 0, // La BD lo asigna
+                monto = montoParaGuardar, // Guardamos el monto del movimiento, no el total
                 fechaRegistro = Date(),
                 usuarioRut = usuarioRut,
                 tipoEvento = tipo
             )
 
-            // 4. Guardar en la base de datos
+            // 3. Guardar en la base de datos
             val success = withContext(Dispatchers.IO) {
                 dbHelper.insertarSaldo(nuevoMovimiento)
             }
 
-            // 5. Actualizar la UI
+            // 4. Actualizar la UI
             if (success) {
-                // Volver a cargar los datos para reflejar el cambio
-                cargarDatosSaldo(usuarioRut)
+                cargarDatosSaldo(usuarioRut) // Recargar todo para reflejar el cambio
             } else {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Error al guardar el movimiento.") }
             }
