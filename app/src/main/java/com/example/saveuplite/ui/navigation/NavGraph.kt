@@ -44,6 +44,7 @@ fun AppNavHost(navController: NavHostController) {
         composable(Routes.HOME) { DashboardScreen(navController, usuarioViewModel) } // El nuevo Home
 
         // --- Rutas de funciones adicionales ---
+        // hola
         composable(Routes.LEGACY_HOME) { HomeScreen(navController, usuarioViewModel) } // <-- ¡Ajuste realizado aquí!
 
         composable(Routes.FORM) { FormScreen(navController) }
