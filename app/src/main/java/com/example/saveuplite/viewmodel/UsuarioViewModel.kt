@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
 
-// Estado de la UI: representa cómo se debe ver la pantalla en un momento dado.
 data class AuthUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -21,87 +20,48 @@ data class AuthUiState(
     val currentUser: Usuario? = null
 )
 
-/**
- * ViewModel para manejar la lógica de negocio relacionada con el Usuario.
- *
- * Este ViewModel se encarga de la autenticación y el registro,
- * validando los datos y actualizando el estado de la UI para que la pantalla reaccione.
- */
 class UsuarioViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dbHelper = DatabaseHelper(application)
 
-    // _uiState es privado y mutable, solo el ViewModel puede cambiarlo.
     private val _uiState = MutableStateFlow(AuthUiState())
-    // uiState es público e inmutable, la UI solo puede leerlo.
     val uiState = _uiState.asStateFlow()
 
-    /**
-     * Inicia sesión de un usuario contra la base de datos local.
-     */
     fun login(email: String, contrasena: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            if (email.isBlank() || contrasena.isBlank()) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "El correo y la contraseña son obligatorios.") }
-                return@launch
-            }
-
-            // Operación de base de datos en un hilo de fondo
             val user = withContext(Dispatchers.IO) {
                 dbHelper.obtenerAuthUsuarioPorEmail(email)
             }
 
             if (user != null && user.contrasena == contrasena) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isAuthenticated = true,
-                        currentUser = user
-                    )
-                }
+                _uiState.update { it.copy(isLoading = false, isAuthenticated = true, currentUser = user) }
             } else {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Credenciales inválidas.") }
             }
         }
     }
 
-    /**
-     * Registra un nuevo usuario en la base de datos.
-     */
     fun register(rut: String, nombre: String, apellido: String, email: String, contrasena: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            // Validaciones (puedes añadir más)
-            if (rut.isBlank() || nombre.isBlank() || apellido.isBlank() || email.isBlank() || contrasena.isBlank()) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Todos los campos son obligatorios.") }
+            // --- Validaciones Previas en ViewModel ---
+            val rutExists = withContext(Dispatchers.IO) { dbHelper.usuarioExistePorRut(rut) }
+            if (rutExists) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "El RUT ya está registrado.") }
                 return@launch
             }
 
-            val passwordRegex = "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{7,20}$".toRegex()
-            if (!contrasena.matches(passwordRegex)) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "La contraseña debe tener entre 7 y 20 caracteres, con al menos una letra y un número.") }
-                return@launch
-            }
-
-            // Verificar si el usuario ya existe
-            val existingUser = withContext(Dispatchers.IO) {
-                dbHelper.obtenerAuthUsuarioPorEmail(email)
-            }
-
-            if (existingUser != null) {
+            val emailExists = withContext(Dispatchers.IO) { dbHelper.usuarioExistePorEmail(email) }
+            if (emailExists) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "El correo electrónico ya está registrado.") }
                 return@launch
             }
 
-            // Crear y guardar el nuevo usuario
             val newUser = Usuario(
-                rut = rut,
-                nombre = nombre,
-                apellido = apellido,
-                email = email,
+                rut = rut, nombre = nombre, apellido = apellido, email = email, 
                 contrasena = contrasena, // En una app real, la contraseña debería ser hasheada
                 fechaRegistro = Date()
             )
@@ -111,23 +71,18 @@ class UsuarioViewModel(application: Application) : AndroidViewModel(application)
             }
 
             if (success) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isAuthenticated = true, // Auto-login después de registrar
-                        currentUser = newUser
-                    )
-                }
+                _uiState.update { it.copy(isLoading = false, isAuthenticated = true, currentUser = newUser) }
             } else {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Error al registrar el usuario.") }
             }
         }
     }
 
-    /**
-     * Cierra la sesión del usuario actual.
-     */
     fun logout() {
-        _uiState.value = AuthUiState() // Resetea al estado inicial
+        _uiState.value = AuthUiState()
+    }
+    
+    fun clearErrors() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 }

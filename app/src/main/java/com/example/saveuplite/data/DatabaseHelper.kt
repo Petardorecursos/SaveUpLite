@@ -14,30 +14,24 @@ class DatabaseHelper(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "saveup.db"
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_VERSION = 4 // <-- VERSIÓN INCREMENTADA
 
         // Tablas
         const val TABLE_FORM = "usuarios"
         const val TABLE_AUTH = "auth_usuarios"
         const val TABLE_SALDO = "saldos"
 
-        // Columnas comunes
+        // Columnas
         const val COL_ID = "id"
-
-        // Columnas TBL_FORM
         const val COL_NOMBRE_FORM = "nombre"
         const val COL_RUT_FORM = "rut"
         const val COL_INGRESO = "ingreso"
         const val COL_DESCRIPCION = "descripcion"
-
-        // Columnas TBL_AUTH
         const val COL_AUTH_RUT = "rut"
         const val COL_AUTH_NOMBRE = "nombre"
         const val COL_AUTH_APELLIDO = "apellido"
         const val COL_AUTH_EMAIL = "email"
         const val COL_AUTH_CONTRASENA = "contrasena"
-
-        // Columnas TBL_SALDO
         const val COL_SALDO_ID = "id_saldo"
         const val COL_SALDO_MONTO = "monto"
         const val COL_SALDO_FECHA = "fecha_registro"
@@ -58,7 +52,7 @@ class DatabaseHelper(context: Context) :
                 FOREIGN KEY($COL_SALDO_RUT_USUARIO) REFERENCES $TABLE_AUTH($COL_AUTH_RUT)
             )
         """.trimIndent()
-        
+
         db.execSQL(createTableForm)
         db.execSQL(createTableAuth)
         db.execSQL(createTableSaldo)
@@ -82,7 +76,7 @@ class DatabaseHelper(context: Context) :
             put(COL_AUTH_CONTRASENA, usuario.contrasena)
         }
         val result = db.insert(TABLE_AUTH, null, values)
-        db.close()
+        // NO CERRAMOS LA BD: db.close()
         return result != -1L
     }
 
@@ -97,15 +91,32 @@ class DatabaseHelper(context: Context) :
                 apellido = cursor.getString(cursor.getColumnIndexOrThrow(COL_AUTH_APELLIDO)),
                 email = cursor.getString(cursor.getColumnIndexOrThrow(COL_AUTH_EMAIL)),
                 contrasena = cursor.getString(cursor.getColumnIndexOrThrow(COL_AUTH_CONTRASENA)),
-                fechaRegistro = Date() // La fecha no se guarda en la BD, se genera al momento
+                fechaRegistro = Date()
             )
         }
         cursor.close()
-        db.close()
+        // NO CERRAMOS LA BD: db.close()
         return usuario
     }
 
-    // --- Métodos TBL_FORM ---
+    // --- NUEVAS FUNCIONES DE VALIDACIÓN ---
+    fun usuarioExistePorRut(rut: String): Boolean {
+        val db = readableDatabase
+        val cursor = db.query(TABLE_AUTH, arrayOf(COL_AUTH_RUT), "$COL_AUTH_RUT = ?", arrayOf(rut), null, null, null)
+        val exists = cursor.count > 0
+        cursor.close()
+        return exists
+    }
+
+    fun usuarioExistePorEmail(email: String): Boolean {
+        val db = readableDatabase
+        val cursor = db.query(TABLE_AUTH, arrayOf(COL_AUTH_EMAIL), "$COL_AUTH_EMAIL = ?", arrayOf(email), null, null, null)
+        val exists = cursor.count > 0
+        cursor.close()
+        return exists
+    }
+
+    // --- Otros métodos (sin cambios en db.close()) ---
     fun insertarUsuario(nombre: String, rut: String, ingreso: Int, descripcion: String): Boolean {
         val db = writableDatabase
         val values = ContentValues().apply {
@@ -114,9 +125,7 @@ class DatabaseHelper(context: Context) :
             put(COL_INGRESO, ingreso)
             put(COL_DESCRIPCION, descripcion)
         }
-        val result = db.insert(TABLE_FORM, null, values)
-        db.close()
-        return result != -1L
+        return db.insert(TABLE_FORM, null, values) != -1L
     }
 
     fun obtenerUsuarios(): List<UsuarioDB> {
@@ -135,11 +144,9 @@ class DatabaseHelper(context: Context) :
             } while (cursor.moveToNext())
         }
         cursor.close()
-        db.close()
         return lista
     }
 
-    // --- Métodos TBL_SALDO ---
     fun insertarSaldo(saldo: Saldo): Boolean {
         val db = writableDatabase
         val values = ContentValues().apply {
@@ -148,9 +155,7 @@ class DatabaseHelper(context: Context) :
             put(COL_SALDO_TIPO_EVENTO, saldo.tipoEvento.name)
             put(COL_SALDO_RUT_USUARIO, saldo.usuarioRut)
         }
-        val result = db.insert(TABLE_SALDO, null, values)
-        db.close()
-        return result != -1L
+        return db.insert(TABLE_SALDO, null, values) != -1L
     }
 
     fun obtenerSaldoActual(usuarioRut: String): Float {
@@ -161,7 +166,6 @@ class DatabaseHelper(context: Context) :
             saldoActual = cursor.getFloat(0)
         }
         cursor.close()
-        db.close()
         return saldoActual
     }
 
@@ -181,7 +185,6 @@ class DatabaseHelper(context: Context) :
             } while (cursor.moveToNext())
         }
         cursor.close()
-        db.close()
         return listaSaldos
     }
 }
