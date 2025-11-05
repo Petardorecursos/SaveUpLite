@@ -13,8 +13,50 @@ import com.example.saveuplite.viewmodel.PostViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostScreen(viewModel: PostViewModel) {
-    // obervamos el flujo de datos del viewModel
+    // Observamos el flujo de datos del ViewModel
     val posts = viewModel.postList.collectAsState().value
-    //scaffold con TopAppBar
-    // CONTINUAR DESDE PASO 7 GUIA 3.1.2
+
+    // Scaffold con TopAppBar
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(text = "Listado de Posts") }
+            )
+        }
+    ) { innerPadding ->
+        // Aplicamos el padding de seguridad del sistema
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues = innerPadding) // 🔹 Esto garantiza el uso de edge-to-edge
+        ) {
+            // Lista de publicaciones
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(all = 16.dp) // 🔹 Espaciado interior del contenido
+            ) {
+                items(items = posts) { post ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(all = 16.dp)) {
+                            Text(
+                                text = "Título: ${post.title}",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = post.body,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
