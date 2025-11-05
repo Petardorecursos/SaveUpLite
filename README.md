@@ -8,7 +8,7 @@
 
 ## ¿Que es SaveUp Lite?
 
-**SaveUp Lite** es una aplicación mobil diseñada para la gestión financiera personal de una forma ágil y sencilla.
+**SaveUp Lite** es una aplicación móvil diseñada para la gestión financiera personal de una forma ágil y sencilla.
 
 Este proyecto nació como una alternativa directa a nuestra aplicación original y más completa, **"SaveUp"**. Mientras que la versión completa de SaveUp ofrece un conjunto robusto de herramientas que incluyen presupuestos detallados, control de deudas y reportes mensuales avanzados, **SaveUp Lite** se enfoca exclusivamente en la funcionalidad principal: el seguimiento de ingresos y gastos diarios.
 
