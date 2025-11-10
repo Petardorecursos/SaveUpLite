@@ -10,9 +10,9 @@ Conectar la aplicación Android a la API REST del backend utilizando Retrofit pa
     *   `[COMPLETADO]` Crear un `UsuarioController` para que los endpoints REST devuelvan el `UsuarioDTO`.
 
 2.  **Frontend (Android - Kotlin):** `[PENDIENTE]`
-    *   `[PENDIENTE]` Añadir las dependencias de Retrofit y Gson en `build.gradle.kts (app)`.
-    *   `[PENDIENTE]` Crear una interfaz de servicio de Retrofit (`ApiService`) que defina los endpoints.
-    *   `[PENDIENTE]` Crear una instancia de Retrofit (Retrofit Client) configurada con la URL base del backend y el convertidor de Gson.
+    *   `[COMPLETADO]` Añadir las dependencias de Retrofit y Gson en `build.gradle.kts (app)`.
+    *   `[COMPLETADO]` Crear una interfaz de servicio de Retrofit (`ApiService`) que defina los endpoints.
+    *   `[COMPLETADO]` Crear una instancia de Retrofit (Retrofit Client) configurada con la URL base del backend y el convertidor de Gson.
     *   `[PENDIENTE]` Actualizar la lógica de la aplicación (ViewModels, Repositories) para usar el cliente de Retrofit.
 
 ---
