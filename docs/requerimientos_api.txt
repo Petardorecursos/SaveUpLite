@@ -1,0 +1,89 @@
+**Título:** Requerimientos: Conexión API REST con Retrofit y Gson
+
+**Descripción:**
+Conectar la aplicación Android a la API REST del backend utilizando Retrofit para las peticiones HTTP y Gson para la serialización/deserialización de datos JSON.
+
+**Pasos a seguir:**
+
+1.  **Backend (Spring Boot):** `[COMPLETADO]`
+    *   `[COMPLETADO]` Crear un `UsuarioDTO`.
+    *   `[COMPLETADO]` Crear un `UsuarioController` para que los endpoints REST devuelvan el `UsuarioDTO`.
+
+2.  **Frontend (Android - Kotlin):** `[PENDIENTE]`
+    *   `[PENDIENTE]` Añadir las dependencias de Retrofit y Gson en `build.gradle.kts (app)`.
+    *   `[PENDIENTE]` Crear una interfaz de servicio de Retrofit (`ApiService`) que defina los endpoints.
+    *   `[PENDIENTE]` Crear una instancia de Retrofit (Retrofit Client) configurada con la URL base del backend y el convertidor de Gson.
+    *   `[PENDIENTE]` Actualizar la lógica de la aplicación (ViewModels, Repositories) para usar el cliente de Retrofit.
+
+---
+
+**Avances Realizados (Backend):**
+
+**1. UsuarioKotlinDTO.java:**
+```java
+package com.example.SaveUp.DTO;
+
+import java.util.Date;
+import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UsuarioKotlinDTO {
+    private String rut;
+    private String nombre;
+    private String apellido;
+    private String email;
+    private String contrasena;
+    private Date fechaRegistro;
+}
+```
+
+**2. UsuarioKotlinController.java:**
+```java
+package com.example.SaveUp.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.SaveUp.DTO.UsuarioKotlinDTO;
+import com.example.SaveUp.model.Usuario;
+import com.example.SaveUp.service.UsuarioService;
+
+@RestController
+@RequestMapping("/api/usuariosK")
+public class UsuarioKotlinController {
+
+    @Autowired
+    private UsuarioService usuarioService;
+
+    @GetMapping("/{rut}")
+    public ResponseEntity<UsuarioKotlinDTO> getUsuarioByRut(@PathVariable String rut) {
+        Usuario usuarioEntity = usuarioService.findByRut(rut);
+
+        if (usuarioEntity == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        UsuarioKotlinDTO usuarioDTO = convertToDto(usuarioEntity);
+        return ResponseEntity.ok(usuarioDTO);
+    }
+
+    private UsuarioKotlinDTO convertToDto(Usuario entity) {
+        return new UsuarioKotlinDTO(
+            entity.getRut(),
+            entity.getNombre(),
+            entity.getApellido(),
+            entity.getEmail(),
+            null,  // Se omite la contraseña en la respuesta
+            entity.getFechaRegistro()
+        );
+    }
+}
+```

@@ -3,6 +3,7 @@ package com.example.saveuplite.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.saveuplite.api.RetrofitClient
 import com.example.saveuplite.data.DatabaseHelper
 import com.example.saveuplite.model.Usuario
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,30 @@ class UsuarioViewModel(application: Application) : AndroidViewModel(application)
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState = _uiState.asStateFlow()
+
+    /**
+     * Obtiene los datos de un usuario desde la API del backend.
+     * Actualiza el `currentUser` en el `AuthUiState`.
+     *
+     * @param rut El RUT del usuario a buscar.
+     */
+    fun fetchUsuarioFromApi(rut: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                // Ejecuta la llamada a la API en el hilo de IO
+                val user = withContext(Dispatchers.IO) {
+                    RetrofitClient.apiService.getUsuarioByRut(rut)
+                }
+                // Actualiza el estado con el usuario obtenido de la API
+                _uiState.update { it.copy(isLoading = false, currentUser = user) }
+
+            } catch (e: Exception) {
+                // En caso de error (red, 404, etc.), actualiza el estado con un mensaje
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Error al obtener usuario: ${e.message}") }
+            }
+        }
+    }
 
     fun login(email: String, contrasena: String) {
         viewModelScope.launch {

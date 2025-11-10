@@ -105,6 +105,15 @@ fun AuthScreen(
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearErrors() // Limpia el error después de mostrarlo
+        }
+    }
+
+    // *** NUEVO: Muestra el resultado de la llamada a la API ***
+    LaunchedEffect(uiState.currentUser) {
+        // Se muestra solo si hay un usuario pero no estamos autenticados (distingue la llamada a la API del login)
+        if (uiState.currentUser != null && !uiState.isAuthenticated) {
+            Toast.makeText(context, "API: Usuario encontrado: ${uiState.currentUser?.nombre}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -130,6 +139,12 @@ fun AuthScreen(
                     // --- Campos del Formulario con Validaciones ---
                     if (!isLoginScreen) {
                         OutlinedTextField(value = rut, onValueChange = { rut = it; rutError = null }, label = { Text("RUT") }, isError = rutError != null, supportingText = { rutError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
+                        
+                        // *** NUEVO: Botón para probar la API ***
+                        TextButton(onClick = { viewModel.fetchUsuarioFromApi(rut) }) {
+                            Text("Buscar RUT en backend (API)")
+                        }
+
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(value = nombre, onValueChange = { nombre = it; nombreError = null }, label = { Text("Nombre") }, isError = nombreError != null, supportingText = { nombreError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
                         Spacer(modifier = Modifier.height(8.dp))
@@ -168,10 +183,4 @@ fun AuthScreen(
             }
         }
     }
-}
-
-// Una pequeña función de extensión en el ViewModel para limpiar errores al cambiar de pantalla
-fun UsuarioViewModel.clearErrors() {
-    // Esta es una forma de exponer una función para limpiar el estado si es necesario.
-    // En este caso, lo manejamos directamente en el ViewModel, pero es un buen patrón.
 }

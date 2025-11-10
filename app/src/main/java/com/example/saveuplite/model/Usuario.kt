@@ -15,6 +15,6 @@ data class Usuario(
     val nombre: String,
     val apellido: String,
     val email: String,
-    val contrasena: String, // En un caso real, aquí se manejaría un token de sesión.
+    val contrasena: String?, // La contraseña ahora es nullable para coincidir con la respuesta de la API
     val fechaRegistro: Date
 )

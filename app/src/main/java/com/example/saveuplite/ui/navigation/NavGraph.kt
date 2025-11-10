@@ -17,6 +17,8 @@ import com.example.saveuplite.ui.screens.postScreen.PostScreen
 import com.example.saveuplite.viewmodel.LocationViewModel
 import com.example.saveuplite.viewmodel.PostViewModel
 import com.example.saveuplite.viewmodel.UsuarioViewModel
+import com.example.saveuplite.repository.PostRepository
+import com.example.saveuplite.viewmodel.PostViewModelFactory
 
 object Routes {
     const val HOME = "home"
@@ -58,7 +60,8 @@ fun AppNavHost(navController: NavHostController) {
         }
         composable(Routes.LIST) { ListScreen(navController) }
         composable(Routes.POSTS) {
-            val postViewModel: PostViewModel = viewModel()
+            val postRepository = PostRepository()
+            val postViewModel: PostViewModel = viewModel(factory = PostViewModelFactory(postRepository))
             PostScreen(viewModel = postViewModel)
         }
     }
