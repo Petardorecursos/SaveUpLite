@@ -3,21 +3,43 @@
 **Descripción:**
 Conectar la aplicación Android a la API REST del backend utilizando Retrofit para las peticiones HTTP y Gson para la serialización/deserialización de datos JSON.
 
-**Pasos a seguir:**
+---
 
-1.  **Backend (Spring Boot):** `[COMPLETADO]`
+**Fase 1: Lectura de Datos (GET)** `[COMPLETADA]`
+
+**1.  Backend (Spring Boot):** `[COMPLETADO]`
     *   `[COMPLETADO]` Crear un `UsuarioDTO`.
-    *   `[COMPLETADO]` Crear un `UsuarioController` para que los endpoints REST devuelvan el `UsuarioDTO`.
+    *   `[COMPLETADO]` Crear un `UsuarioController` con un endpoint `GET` para devolver el `UsuarioDTO`.
 
+<<<<<<< HEAD
+**2.  Frontend (Android - Kotlin):** `[COMPLETADO]`
+    *   `[COMPLETADO]` Añadir las dependencias de Retrofit y Gson.
+    *   `[COMPLETADO]` Crear (y fusionar) la interfaz `ApiService` con el endpoint `GET`.
+    *   `[COMPLETADO]` Crear el `RetrofitClient`.
+    *   `[COMPLETADO]` Actualizar `UsuarioViewModel` y `AuthScreen` para llamar y probar el endpoint `GET`.
+=======
 2.  **Frontend (Android - Kotlin):** `[PENDIENTE]`
     *   `[COMPLETADO]` Añadir las dependencias de Retrofit y Gson en `build.gradle.kts (app)`.
     *   `[COMPLETADO]` Crear una interfaz de servicio de Retrofit (`ApiService`) que defina los endpoints.
     *   `[COMPLETADO]` Crear una instancia de Retrofit (Retrofit Client) configurada con la URL base del backend y el convertidor de Gson.
     *   `[PENDIENTE]` Actualizar la lógica de la aplicación (ViewModels, Repositories) para usar el cliente de Retrofit.
+>>>>>>> 4c9666aede8a5a6c7ca4e03ba9d19183b2614567
 
 ---
 
-**Avances Realizados (Backend):**
+**Fase 2: Escritura de Datos (POST - Registro)** `[PENDIENTE]`
+
+**1.  Backend (Spring Boot):** `[PENDIENTE]`
+    *   `[PENDIENTE]` Crear un endpoint `POST` en `UsuarioController` para registrar nuevos usuarios.
+    *   `[PENDIENTE]` La lógica debe recibir un `UsuarioDTO`, convertirlo a una entidad `Usuario`, hashear la contraseña y guardarlo en la base de datos.
+
+**2.  Frontend (Android - Kotlin):** `[PENDIENTE]`
+    *   `[PENDIENTE]` Añadir un método `POST` en la `ApiService` para el registro de usuarios.
+    *   `[PENDIENTE]` Modificar la función `register` en `UsuarioViewModel` para que llame al nuevo endpoint de la API, reemplazando la lógica de la base de datos local (`dbHelper`).
+
+---
+
+**Avances Realizados (Fase 1 - Backend):**
 
 **1. UsuarioKotlinDTO.java:**
 ```java
@@ -41,7 +63,7 @@ public class UsuarioKotlinDTO {
 }
 ```
 
-**2. UsuarioKotlinController.java:**
+**2. UsuarioKotlinController.java (GET):**
 ```java
 package com.example.SaveUp.controller;
 
