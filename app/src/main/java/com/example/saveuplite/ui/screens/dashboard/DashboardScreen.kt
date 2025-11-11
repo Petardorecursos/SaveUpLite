@@ -135,12 +135,7 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(Icons.Default.ArrowForward, contentDescription = "Ir a funciones adicionales")
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(onClick = { navController.navigate(Routes.POSTS) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Ver Posts")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.ArrowForward, contentDescription = "Ir a posts")
-                }
+
                 Spacer(modifier = Modifier.height(24.dp))
                 TransactionHistory(saldoState.historialMovimientos)
             }

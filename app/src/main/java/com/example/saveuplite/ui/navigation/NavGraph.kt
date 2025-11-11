@@ -13,12 +13,12 @@ import com.example.saveuplite.ui.screens.form.FormScreen
 import com.example.saveuplite.ui.screens.list.ListScreen
 import com.example.saveuplite.ui.screens.nativeView.LocationScreen
 import com.example.saveuplite.ui.screens.nativeView.NotificationScreen
-import com.example.saveuplite.ui.screens.postScreen.PostScreen
+
 import com.example.saveuplite.viewmodel.LocationViewModel
-import com.example.saveuplite.viewmodel.PostViewModel
+
 import com.example.saveuplite.viewmodel.UsuarioViewModel
-import com.example.saveuplite.repository.PostRepository
-import com.example.saveuplite.viewmodel.PostViewModelFactory
+
+
 
 object Routes {
     const val HOME = "home"
@@ -28,7 +28,7 @@ object Routes {
     const val LIST = "list"
     const val NOTIFICATION = "notification"
     const val AUTH = "auth"
-    const val POSTS = "posts"
+
 }
 
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
@@ -59,10 +59,6 @@ fun AppNavHost(navController: NavHostController) {
             LocationScreen(viewModel = locationViewModel, navController = navController)
         }
         composable(Routes.LIST) { ListScreen(navController) }
-        composable(Routes.POSTS) {
-            val postRepository = PostRepository()
-            val postViewModel: PostViewModel = viewModel(factory = PostViewModelFactory(postRepository))
-            PostScreen(viewModel = postViewModel)
-        }
+
     }
 }

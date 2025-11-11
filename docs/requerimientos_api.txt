@@ -9,39 +9,93 @@ Conectar la aplicación Android a la API REST del backend utilizando Retrofit pa
 
 **1.  Backend (Spring Boot):** `[COMPLETADO]`
     *   `[COMPLETADO]` Crear un `UsuarioDTO`.
-    *   `[COMPLETADO]` Crear un `UsuarioController` con un endpoint `GET` para devolver el `UsuarioDTO`.
+    *   `[COMPLETADO]` Crear un `UsuarioController` con un endpoint `GET`.
 
-<<<<<<< HEAD
 **2.  Frontend (Android - Kotlin):** `[COMPLETADO]`
     *   `[COMPLETADO]` Añadir las dependencias de Retrofit y Gson.
-    *   `[COMPLETADO]` Crear (y fusionar) la interfaz `ApiService` con el endpoint `GET`.
+    *   `[COMPLETADO]` Fusionar la interfaz `ApiService` con el endpoint `GET`.
     *   `[COMPLETADO]` Crear el `RetrofitClient`.
-    *   `[COMPLETADO]` Actualizar `UsuarioViewModel` y `AuthScreen` para llamar y probar el endpoint `GET`.
-=======
-2.  **Frontend (Android - Kotlin):** `[PENDIENTE]`
-    *   `[COMPLETADO]` Añadir las dependencias de Retrofit y Gson en `build.gradle.kts (app)`.
-    *   `[COMPLETADO]` Crear una interfaz de servicio de Retrofit (`ApiService`) que defina los endpoints.
-    *   `[COMPLETADO]` Crear una instancia de Retrofit (Retrofit Client) configurada con la URL base del backend y el convertidor de Gson.
-    *   `[PENDIENTE]` Actualizar la lógica de la aplicación (ViewModels, Repositories) para usar el cliente de Retrofit.
->>>>>>> 4c9666aede8a5a6c7ca4e03ba9d19183b2614567
+    *   `[COMPLETADO]` Actualizar `UsuarioViewModel` y `AuthScreen` para probar el endpoint `GET`.
 
 ---
 
-**Fase 2: Escritura de Datos (POST - Registro)** `[PENDIENTE]`
+**Fase 2: Escritura de Datos (POST - Registro)** `[EN PROGRESO]`
 
-**1.  Backend (Spring Boot):** `[PENDIENTE]`
-    *   `[PENDIENTE]` Crear un endpoint `POST` en `UsuarioController` para registrar nuevos usuarios.
-    *   `[PENDIENTE]` La lógica debe recibir un `UsuarioDTO`, convertirlo a una entidad `Usuario`, hashear la contraseña y guardarlo en la base de datos.
+**1.  Backend (Spring Boot):** `[COMPLETADO]`
+    *   `[COMPLETADO]` Crear un endpoint `POST` en `UsuarioController`.
+    *   `[COMPLETADO]` Implementar la lógica de servicio para recibir un DTO, hashear contraseña y guardar en la BD.
 
 **2.  Frontend (Android - Kotlin):** `[PENDIENTE]`
-    *   `[PENDIENTE]` Añadir un método `POST` en la `ApiService` para el registro de usuarios.
-    *   `[PENDIENTE]` Modificar la función `register` en `UsuarioViewModel` para que llame al nuevo endpoint de la API, reemplazando la lógica de la base de datos local (`dbHelper`).
+    *   `[PENDIENTE]` Añadir un método `POST` en la `ApiService` para el registro.
+    *   `[PENDIENTE]` Modificar la función `register` en `UsuarioViewModel` para llamar al nuevo endpoint de la API.
 
 ---
 
-**Avances Realizados (Fase 1 - Backend):**
+---
 
-**1. UsuarioKotlinDTO.java:**
+**Fase 3: Depuración y Pruebas de Integración** `[EN PROGRESO]`
+
+**Descripción:**
+Una vez completado el desarrollo inicial de las Fases 1 y 2, se inicia el proceso de pruebas integrales para validar la comunicación
+ entre el frontend (Android) y el backend (Spring Boot). Durante esta fase se han identificado y solucionado varios problemas.
+
+**Historial de Problemas y Soluciones:**
+
+1.  **Error de Red: `CLEARTEXT communication not permitted`** `[SOLUCIONADO]`
+    *   **Análisis:** Android (API 28+) prohíbe por defecto las conexiones `http` (no seguras). La `BASE_URL` del cliente Retrofit
+ usa `http://10.0.2.2:8080/`.
+    *   **Solución Aplicada:** Se añadió `android:usesCleartextTraffic="true"` al `<application>` en `AndroidManifest.xml` para permitir la comunicación en el entorno de desarrollo local.
+
+2.  **Error de Autenticación:
+ `HTTP 401 Unauthorized`** `[SOLUCIONADO]`
+    *   **Análisis:** Spring Security estaba protegiendo todos los endpoints por defecto. La petición de registro a `POST /api/usuariosK/register` no estaba en la lista de rutas públicas permitidas.
+    *   **Solución
+ Aplicada:** Se modificó la clase `SecurityConfig.java` en el backend para añadir `requestMatchers(HttpMethod.POST, "/api/usuariosK/register").permitAll()`, permitiendo el acceso anónimo a dicho endpoint.
+
+**Problema Actual: Error Interno del Servidor `HTTP 500`** `[PENDIENTE]`
+
+*   **Estado:** Al intentar registrar un usuario (en el "happy path"), la app recibe un código de estado `HTTP 500`.
+*   **Análisis:**
+    Un error 500 indica que la petición ha superado las barreras de red y seguridad, llegando exitosamente al `Controller` y al
+ `Service` del backend. Sin embargo, una excepción no controlada ha ocurrido *dentro* de la lógica del servidor mientras procesaba la petición.
+
+**Plan de Acción para Resolver el Error 500:**
+
+1.  **Replicar el Error y Capturar el Stack Trace:**
+    *   `[ACCIÓN]` Reiniciar el servidor de backend (Spring Boot).
+    *   `[ACCIÓN]` Realizar
+ una petición de registro desde la app Android para provocar el error 500.
+    *   `[ACCIÓN]` Inmediatamente después del error, ir a la consola del IDE donde corre el backend y **copiar el log de error completo (el "stack trace" rojo)**.
+
+2.  **Analizar el Stack Trace para Identificar la Causa Raíz:**
+    La causa más probable es una de las siguientes:
+    *   **Sospechoso #1: Error de Conexión con la Base de Datos:** Una mala configuración en `application.properties` (URL, usuario,
+ contraseña) o la falta del driver de la BD puede causar que las operaciones del `Repository` fallen.
+    *   **Sospechoso #2: `NullPointerException`:** Un objeto no se ha inyectado o inicializado correctamente antes de ser usado. Un candidato común es el
+     `passwordEncoder` en `UsuarioService`.
+        *   **Sospechoso #3: Conflicto entre Entidad JPA y Tabla de la BD:** Una discrepancia en los nombres de columna, tipos de datos o restricciones (`NOT NULL`) entre la clase `@Entity Usuario` y la tabla `usuario`
+         en la base de datos.
+
+        3.  **Aplicar la Solución:**
+            *   `[ACCIÓN]` Una vez identificada la línea y la causa del error en el stack trace, aplicar la corrección correspondiente en el código del backend.
+            *   `[ACCIÓN]` Reiniciar el servidor y volver a probar el "happy path" desde la app.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+**Avances Realizados (Fase 2 - Backend):**
+
+**1. UsuarioKotlinDTO.java (sin cambios):**
 ```java
 package com.example.SaveUp.DTO;
 
@@ -63,16 +117,14 @@ public class UsuarioKotlinDTO {
 }
 ```
 
-**2. UsuarioKotlinController.java (GET):**
+**2. UsuarioKotlinController.java (con endpoint POST):**
 ```java
 package com.example.SaveUp.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.example.SaveUp.DTO.UsuarioKotlinDTO;
 import com.example.SaveUp.model.Usuario;
@@ -87,25 +139,51 @@ public class UsuarioKotlinController {
 
     @GetMapping("/{rut}")
     public ResponseEntity<UsuarioKotlinDTO> getUsuarioByRut(@PathVariable String rut) {
-        Usuario usuarioEntity = usuarioService.findByRut(rut);
-
-        if (usuarioEntity == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        UsuarioKotlinDTO usuarioDTO = convertToDto(usuarioEntity);
-        return ResponseEntity.ok(usuarioDTO);
+        // ... (código existente)
     }
 
     private UsuarioKotlinDTO convertToDto(Usuario entity) {
-        return new UsuarioKotlinDTO(
-            entity.getRut(),
-            entity.getNombre(),
-            entity.getApellido(),
-            entity.getEmail(),
-            null,  // Se omite la contraseña en la respuesta
-            entity.getFechaRegistro()
-        );
+        // ... (código existente)
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<Void> registerUsuario(@RequestBody UsuarioKotlinDTO usuarioDTO) {
+        try {
+            usuarioService.registrarUsuarioDesdeApp(usuarioDTO);
+            return new ResponseEntity<>(HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(HttpStatus.CONFLICT);
+        }
+    }
+}
+```
+
+**3. UsuarioService.java (nueva función de registro):**
+```java
+public class UsuarioService {
+
+    // ... (otras inyecciones y métodos)
+
+    /**
+     * Registra un nuevo usuario desde la app Android.
+     */
+    public Usuario registrarUsuarioDesdeApp(UsuarioKotlinDTO usuarioDTO) {
+        if (usuarioRepository.existsById(usuarioDTO.getRut())) {
+            throw new IllegalArgumentException("El RUT ya está registrado.");
+        }
+        if (usuarioRepository.findByEmail(usuarioDTO.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("El correo electrónico ya está registrado.");
+        }
+
+        Usuario nuevoUsuario = new Usuario();
+        nuevoUsuario.setRut(usuarioDTO.getRut());
+        nuevoUsuario.setNombre(usuarioDTO.getNombre());
+        nuevoUsuario.setApellido(usuarioDTO.getApellido());
+        nuevoUsuario.setEmail(usuarioDTO.getEmail());
+        nuevoUsuario.setContrasena(passwordEncoder.encode(usuarioDTO.getContrasena()));
+        nuevoUsuario.setFechaRegistro(new Date());
+
+        return usuarioRepository.save(nuevoUsuario);
     }
 }
 ```

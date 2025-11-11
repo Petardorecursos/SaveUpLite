@@ -23,30 +23,21 @@ data class AuthUiState(
 
 class UsuarioViewModel(application: Application) : AndroidViewModel(application) {
 
+    // El dbHelper se mantiene, ya que lo usaremos para el login y otras funciones locales.
     private val dbHelper = DatabaseHelper(application)
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState = _uiState.asStateFlow()
 
-    /**
-     * Obtiene los datos de un usuario desde la API del backend.
-     * Actualiza el `currentUser` en el `AuthUiState`.
-     *
-     * @param rut El RUT del usuario a buscar.
-     */
     fun fetchUsuarioFromApi(rut: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                // Ejecuta la llamada a la API en el hilo de IO
                 val user = withContext(Dispatchers.IO) {
                     RetrofitClient.apiService.getUsuarioByRut(rut)
                 }
-                // Actualiza el estado con el usuario obtenido de la API
                 _uiState.update { it.copy(isLoading = false, currentUser = user) }
-
             } catch (e: Exception) {
-                // En caso de error (red, 404, etc.), actualiza el estado con un mensaje
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Error al obtener usuario: ${e.message}") }
             }
         }
@@ -56,6 +47,7 @@ class UsuarioViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
+            // NOTA: El login todavía es local. Un siguiente paso sería hacerlo contra la API.
             val user = withContext(Dispatchers.IO) {
                 dbHelper.obtenerAuthUsuarioPorEmail(email)
             }
@@ -68,45 +60,62 @@ class UsuarioViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // ======================================================================================
+    // === FUNCIÓN "REGISTER" ACTUALIZADA PARA USAR LA API REST =============================
+    // ======================================================================================
     fun register(rut: String, nombre: String, apellido: String, email: String, contrasena: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            // --- Validaciones Previas en ViewModel ---
-            val rutExists = withContext(Dispatchers.IO) { dbHelper.usuarioExistePorRut(rut) }
-            if (rutExists) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "El RUT ya está registrado.") }
-                return@launch
-            }
-
-            val emailExists = withContext(Dispatchers.IO) { dbHelper.usuarioExistePorEmail(email) }
-            if (emailExists) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "El correo electrónico ya está registrado.") }
-                return@launch
-            }
-
+            // 1. Crear el objeto Usuario para enviarlo a la API.
+            //    La fecha de registro puede ser generada por el backend, pero enviarla no causa problemas.
             val newUser = Usuario(
-                rut = rut, nombre = nombre, apellido = apellido, email = email, 
-                contrasena = contrasena, // En una app real, la contraseña debería ser hasheada
+                rut = rut,
+                nombre = nombre,
+                apellido = apellido,
+                email = email,
+                contrasena = contrasena, // La contraseña se envía en texto plano a la API; el backend se encarga de hashearla.
                 fechaRegistro = Date()
             )
 
-            val success = withContext(Dispatchers.IO) {
-                dbHelper.insertarAuthUsuario(newUser)
-            }
+            try {
+                // 2. Ejecutar la llamada a la API en el hilo de I/O.
+                val response = withContext(Dispatchers.IO) {
+                    RetrofitClient.apiService.registerUsuario(newUser)
+                }
 
-            if (success) {
-                _uiState.update { it.copy(isLoading = false, isAuthenticated = true, currentUser = newUser) }
-            } else {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Error al registrar el usuario.") }
+                // 3. Manejar la respuesta del servidor.
+                if (response.isSuccessful) {
+                    // CÓDIGO 201 (CREATED): El registro fue exitoso.
+                    // Autenticamos al usuario y lo guardamos en el estado.
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isAuthenticated = true,
+                            currentUser = newUser.copy(contrasena = null) // Guardamos el usuario en el estado sin la contraseña.
+                        )
+                    }
+                } else {
+                    // CÓDIGO 409 (CONFLICT) u otro error del servidor.
+                    val errorMessage = when (response.code()) {
+                        409 -> "El RUT o el correo electrónico ya están registrados."
+                        else -> "Error en el registro (Código: ${response.code()})."
+                    }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = errorMessage) }
+                }
+
+            } catch (e: Exception) {
+                // 4. Manejar errores de conexión (ej. sin internet, servidor caído).
+                _uiState.update { it.copy(isLoading = false, errorMessage = "No se pudo conectar al servidor: ${e.message}") }
             }
         }
     }
 
+
     fun logout() {
         _uiState.value = AuthUiState()
     }
-    
+
     fun clearErrors() {
         _uiState.update { it.copy(errorMessage = null) }
     }
