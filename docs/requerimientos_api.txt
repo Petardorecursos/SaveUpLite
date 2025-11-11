@@ -81,18 +81,6 @@ Una vez completado el desarrollo inicial de las Fases 1 y 2, se inicia el proces
             *   `[ACCIÓN]` Reiniciar el servidor y volver a probar el "happy path" desde la app.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 **Avances Realizados (Fase 2 - Backend):**
 
 **1. UsuarioKotlinDTO.java (sin cambios):**
@@ -186,4 +174,718 @@ public class UsuarioService {
         return usuarioRepository.save(nuevoUsuario);
     }
 }
+
+
+** REFERENCIAS DEL BACKEND 
+
+Estructura de Usuario en Backend - Springboot + Maven + jpa
+
+Entidad Usuario (capa model):
+package com.example.SaveUp.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+
+import java.util.Date;
+import java.util.List;
+
+@Entity
+@Table(name = "USUARIO")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Usuario {
+
+    // RUT como ID, formato chileno con guion y verificador numérico o letra k/K
+    @Id
+    @Column(name = "ID_USUARIO", unique = true)
+    @NotBlank(message = "El RUT es obligatorio")
+    @Pattern(regexp = "^\\d{7,8}-[\\dkK]{1}$", message = "El RUT debe tener el formato 12345678-9 o 12345678-k")
+    private String rut;
+
+    @Column(name = "NOMBRE", nullable = false, length = 100)
+    @NotBlank(message = "El nombre es obligatorio")
+    @Size(min = 3, max = 20, message = "El nombre debe tener entre 3 y 20 caracteres")
+    private String nombre;
+
+    @Column(name = "APELLIDO", nullable = false, length = 100)
+    @NotBlank(message = "El apellido es obligatorio")
+    @Size(min = 3, max = 20, message = "El apellido debe tener entre 3 y 20 caracteres")
+    private String apellido;
+
+    @Column(name = "EMAIL", nullable = false, unique = true, length = 150)
+    @NotBlank(message = "El correo es obligatorio")
+    @Email(message = "Formato de correo inválido")
+    private String email;
+
+    @Column(name = "CONTRASENA_HASH", nullable = false, length = 100)
+    @NotBlank(message = "La contraseña es obligatoria")
+    @Size(min = 7, max = 20, message = "La contraseña debe tener entre 7 y 20 caracteres")
+    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{7,20}$", message = "La contraseña debe contener al menos una letra y un número")
+    private String contrasena;
+
+
+    @Column(name = "FECHA_REGISTRO", nullable = false, updatable = false)
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date fechaRegistro;
+
+    @PrePersist
+    protected void onCreate() {
+        this.fechaRegistro = new Date();
+    }
+
+    @OneToMany(mappedBy = "usuario")
+    private List<Ingreso> ingresos;
+
+    @OneToMany(mappedBy = "usuario")
+    private List<Gasto> gastos;
+
+    // MÉTODOS
+    public boolean iniciarSesion(String email, String contrasena) {
+        return this.email.equals(email) && this.contrasena.equals(contrasena);
+    }
+
+    public void cerrarSesion() {
+        System.out.println("Sesión cerrada para el usuario: " + rut);
+    }
+
+    public void actualizarDatos(String nombre, String correo) {
+        this.nombre = nombre;
+        this.email = correo;
+    }
+
+    public boolean validarCredenciales(String correo, String contrasena) {
+        return this.email.equals(correo) && this.contrasena.equals(contrasena);
+    }
+
+    public void recuperarContrasena() {
+        System.out.println("Correo de recuperación enviado a: " + email);
+    }
+}
+
+
+UsuarioRepository:
+package com.example.SaveUp.repository;
+
+//import com.example.SaveUp.model.CategoriaPresupuesto;
+import com.example.SaveUp.model.Usuario;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+//import java.util.List;
+
+@Repository
+public interface UsuarioRepository extends JpaRepository<Usuario, String> {
+    
+    Optional<Usuario> findByEmail(String email);
+    
+    Optional<Usuario> findByRut(String rut);
+    
+    void deleteByRut(String rut);
+
+    boolean existsByRut(String rut);
+
+    //List <Usuario> findByUsuarioRutAndCategoria(CategoriaPresupuesto categoria);
+
+}
+
+UsuarioService:
+package com.example.SaveUp.service;
+
+import com.example.SaveUp.model.Gasto;
+import com.example.SaveUp.model.Presupuesto;
+import com.example.SaveUp.model.Usuario;
+import com.example.SaveUp.repository.GastoRepository;
+import com.example.SaveUp.repository.PresupuestoRepository;
+import com.example.SaveUp.repository.UsuarioRepository;
+import com.example.SaveUp.DTO.RegistroRequest;
+import jakarta.persistence.EntityNotFoundException;
+import com.example.SaveUp.DTO.UsuarioKotlinDTO;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.example.SaveUp.model.CategoriaPresupuesto;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+public class UsuarioService {
+
+    @Autowired
+    private PresupuestoRepository presupuestoRepository;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+
+    public List<Usuario> findAll() {
+        return usuarioRepository.findAll();
+    }
+    
+    public Usuario findByRut(String rut) {
+        return usuarioRepository.findById(rut).orElse(null);
+    }
+
+    //Save crea tanto como actualiza
+    public Usuario save(Usuario usuario) {
+        return usuarioRepository.save(usuario);
+    }
+
+    public void delete(String rut) {
+        if (!usuarioRepository.existsById(rut)) {
+            throw new EntityNotFoundException("No se puede eliminar. Usuario no encontrado con ID: " + rut);
+        }
+        usuarioRepository.deleteById(rut);
+    }
+
+    // métodos personalizados
+
+
+    @Autowired
+    private GastoRepository gastoRepository;
+
+    public boolean iniciarSesion(String correo, String contrasena) {
+        return usuarioRepository.findAll().stream()
+                .anyMatch(u -> u.iniciarSesion(correo, contrasena));
+    }
+
+    public void cerrarSesion(String rut) {
+        Usuario usuario = findByRut(rut);
+        if (usuario != null) {
+            usuario.cerrarSesion();
+        }
+    }
+
+    public void actualizarDatos(String rut, String nombre, String correo) {
+        Usuario usuario = findByRut(rut);
+        if (usuario != null) {
+            usuario.actualizarDatos(nombre, correo);
+            usuarioRepository.save(usuario);
+        }
+    }
+
+    public boolean validarCredenciales(String correo, String contrasena) {
+        return usuarioRepository.findAll().stream()
+                .anyMatch(u -> u.validarCredenciales(correo, contrasena));
+    }
+
+    public void recuperarContrasena(String rut) {
+        Usuario usuario = findByRut(rut);
+        if (usuario != null) {
+            usuario.recuperarContrasena();
+        }
+    }
+
+    public Usuario buscarPorCorreo(String email) {
+        return usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado con correo: " + email));
+    }  
+
+
+    //nuevo
+    public boolean usuarioExcedePresupuesto(String rut, String categoriaStr) {
+        Usuario usuario = findByRut(rut);
+        if (usuario == null) {
+            throw new EntityNotFoundException("Usuario no encontrado.");
+        }
+
+        CategoriaPresupuesto categoria;
+        try {
+            categoria = CategoriaPresupuesto.valueOf(categoriaStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Categoría inválida: " + categoriaStr);
+        }
+
+        List<Presupuesto> presupuestos = presupuestoRepository.findByUsuario_RutAndCategoria(rut, categoria);
+
+        for (Presupuesto presupuesto : presupuestos) {
+            List<Gasto> gastos = gastoRepository.findByUsuario_RutAndCategoria(rut, categoria).stream()
+                .filter(g -> {
+                    Date fecha = g.getFechaGasto();
+                    return fecha != null &&
+                        !fecha.before(presupuesto.getFechaInicio()) &&
+                        !fecha.after(presupuesto.getFechaTermino());
+                })
+                .collect(Collectors.toList());
+
+            if (presupuesto.estaExcedido(gastos)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public float presupuestoRestante(String rut, String categoriaStr) {
+        Usuario usuario = findByRut(rut);
+        if (usuario == null) {
+            throw new EntityNotFoundException("Usuario no encontrado.");
+        }
+
+        CategoriaPresupuesto categoria;
+        try {
+            categoria = CategoriaPresupuesto.valueOf(categoriaStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Categoría inválida: " + categoriaStr);
+        }
+
+        List<Presupuesto> presupuestos = presupuestoRepository.findByUsuario_RutAndCategoria(rut, categoria);
+
+        if (presupuestos.isEmpty()) return -1;
+
+        Presupuesto actual = presupuestos.get(0); // Suponiendo uno activo
+
+        List<Gasto> gastos = gastoRepository.findByUsuario_RutAndCategoria(rut, categoria).stream()
+            .filter(g -> {
+                Date fecha = g.getFechaGasto();
+                return fecha != null &&
+                    !fecha.before(actual.getFechaInicio()) &&
+                    !fecha.after(actual.getFechaTermino());
+            })
+            .collect(Collectors.toList());
+
+        return actual.calcularRestante(gastos);
+    }
+
+
+
+    public Usuario registrarUsuario(RegistroRequest request) {
+        // Validar si ya existe el usuario por RUT o correo
+        if (usuarioRepository.existsById(request.getRut())) {
+            throw new IllegalArgumentException("Ya existe un usuario con el RUT proporcionado.");
+        }
+
+        if (usuarioRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("Ya existe un usuario con el correo proporcionado.");
+        }
+
+        // Validar contraseña
+        String contrasena = request.getContrasena();
+        if (!contrasena.matches("^[a-zA-Z0-9]{7,}$") || !contrasena.matches(".*\\d.*")) {
+            throw new IllegalArgumentException("La contraseña debe tener al menos 7 caracteres, incluir al menos un número y no contener caracteres especiales.");
+        }
+
+        // Crear y poblar el nuevo Usuario
+        Usuario nuevoUsuario = new Usuario();
+        nuevoUsuario.setRut(request.getRut());
+        nuevoUsuario.setNombre(request.getNombre());
+        nuevoUsuario.setApellido(request.getApellido());
+        nuevoUsuario.setEmail(request.getEmail());
+        nuevoUsuario.setContrasena(passwordEncoder.encode(contrasena));
+        nuevoUsuario.setFechaRegistro(new Date()); // Garantiza que se guarde la fecha actual
+
+        return usuarioRepository.save(nuevoUsuario);
+    }
+
+    public boolean validarCorreoYRut(String email, String rut) {
+        Optional<Usuario> userOpt = usuarioRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            System.out.println("❌ Email no encontrado: " + email);
+            return false;
+        }
+
+        Usuario u = userOpt.get();
+        System.out.println("📬 Encontrado: " + u.getEmail() + ", RUT esperado: " + u.getRut());
+        System.out.println("🆚 RUT recibido: " + rut);
+        
+        return u.getRut().equalsIgnoreCase(rut);
+    }
+
+    public void actualizarContrasena(String email, String nuevaContrasena) {
+        if (nuevaContrasena == null || nuevaContrasena.length() < 7 || !nuevaContrasena.matches(".*\\d.*")) {
+            throw new IllegalArgumentException("La nueva contraseña debe tener al menos 7 caracteres e incluir un número.");
+        }
+
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado con el correo proporcionado."));
+
+        usuario.setContrasena(passwordEncoder.encode(nuevaContrasena));
+        usuarioRepository.save(usuario);
+    }
+
+    /**
+     * Registra un nuevo usuario proveniente desde la aplicación Android.
+     * Recibe un DTO, lo convierte en una entidad Usuario, valida la existencia,
+     * hashea la contraseña y lo persiste en la base de datos.
+     *
+     * @param usuarioDTO El objeto DTO con los datos del nuevo usuario.
+     * @return La entidad Usuario guardada.
+     * @throws IllegalArgumentException si el RUT o el email ya existen.
+     */
+    public Usuario registrarUsuarioDesdeApp(UsuarioKotlinDTO usuarioDTO) {
+        // 1. Validar si ya existe el usuario por RUT o correo
+        if (usuarioRepository.existsById(usuarioDTO.getRut())) {
+            throw new IllegalArgumentException("El RUT ya está registrado.");
+        }
+        if (usuarioRepository.findByEmail(usuarioDTO.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("El correo electrónico ya está registrado.");
+        }
+
+        // 2. Crear una nueva instancia de la entidad Usuario
+        Usuario nuevoUsuario = new Usuario();
+
+        // 3. Mapear los datos del DTO a la entidad
+        nuevoUsuario.setRut(usuarioDTO.getRut());
+        nuevoUsuario.setNombre(usuarioDTO.getNombre());
+        nuevoUsuario.setApellido(usuarioDTO.getApellido());
+        nuevoUsuario.setEmail(usuarioDTO.getEmail());
+        
+        // 4. Hashear la contraseña antes de guardarla (¡Paso de seguridad crítico!)
+        nuevoUsuario.setContrasena(passwordEncoder.encode(usuarioDTO.getContrasena()));
+        
+        // 5. Establecer la fecha de registro
+        nuevoUsuario.setFechaRegistro(new Date());
+
+        // 6. Guardar la nueva entidad en la base de datos y retornarla
+        return usuarioRepository.save(nuevoUsuario);
+    }
+
+}
+
+UsuarioController existe previamente, pensado para otro front, es el siguiente:
+package com.example.SaveUp.controller;
+
+import com.example.SaveUp.DTO.RegistroRequest;
+import com.example.SaveUp.model.Saldo;
+import com.example.SaveUp.model.Usuario;
+import com.example.SaveUp.repository.SaldoRepository;
+import com.example.SaveUp.security.UserDetailsImpl;
+import com.example.SaveUp.service.UsuarioService;
+
+import jakarta.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/usuarios")
+public class UsuarioController {
+
+    @Autowired
+    private UsuarioService usuarioService;
+
+    @Autowired
+    private SaldoRepository saldoRepository;
+
+    // ✅ Listar todos los usuarios
+    @GetMapping
+    public ResponseEntity<List<Usuario>> listar() {
+        List<Usuario> usuarios = usuarioService.findAll();
+        if (usuarios.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(usuarios);
+    }
+
+    // ✅ Registrar usuario con validaciones
+    @PostMapping("/registro")
+    public ResponseEntity<?> registrar(@Valid @RequestBody RegistroRequest request) {
+        try {
+            Usuario nuevoUsuario = usuarioService.registrarUsuario(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(nuevoUsuario);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    // ✅ Buscar usuario por RUT
+    @GetMapping("/{rut}")
+    public ResponseEntity<Usuario> buscar(@PathVariable String rut) {
+        Usuario usuario = usuarioService.findByRut(rut);
+        if (usuario != null) {
+            return ResponseEntity.ok(usuario);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    // ✅ Actualizar usuario (sin tocar fechaRegistro)
+    @PutMapping("/{rut}")
+    public ResponseEntity<Usuario> actualizar(@PathVariable String rut, @RequestBody Usuario usuario) {
+        Usuario existente = usuarioService.findByRut(rut);
+        if (existente == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        existente.setNombre(usuario.getNombre());
+        existente.setApellido(usuario.getApellido());
+        existente.setEmail(usuario.getEmail());
+        existente.setContrasena(usuario.getContrasena());
+
+        usuarioService.save(existente);
+        return ResponseEntity.ok(existente);
+    }
+
+    // ✅ Eliminar usuario por RUT
+    @DeleteMapping("/{rut}")
+    public ResponseEntity<?> eliminar(@PathVariable String rut) {
+        try {
+            usuarioService.delete(rut);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // ✅ Obtener último saldo (si no hay movimientos, devuelve 0.0)
+    @GetMapping(value = "/{rut}/saldo", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Float> obtenerSaldo(@PathVariable String rut) {
+        Saldo ultimoSaldo = saldoRepository
+            .findTopByUsuarioRutOrderByFechaRegistroDesc(rut);
+
+        float monto = (ultimoSaldo != null) 
+            ? ultimoSaldo.getMonto() 
+            : 0f;
+
+        return ResponseEntity.ok(monto);
+    }
+
+    // ✅ Iniciar sesión
+    @PostMapping("/login")
+    public ResponseEntity<String> iniciarSesion(
+            @RequestParam String email,
+            @RequestParam String contrasena) {
+        boolean autenticado = usuarioService.iniciarSesion(email, contrasena);
+        return autenticado
+            ? ResponseEntity.ok("Inicio de sesión exitoso.")
+            : ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenciales inválidas.");
+    }
+
+    // ✅ Cerrar sesión
+    @PostMapping("/logout/{rut}")
+    public ResponseEntity<String> cerrarSesion(@PathVariable String rut) {
+        usuarioService.cerrarSesion(rut);
+        return ResponseEntity.ok("Sesión cerrada.");
+    }
+
+    // ✅ Actualizar nombre y correo
+    @PutMapping("/{rut}/actualizar-datos")
+    public ResponseEntity<String> actualizarDatos(
+            @PathVariable String rut,
+            @RequestParam String nombre,
+            @RequestParam("correo") String correo) {
+        usuarioService.actualizarDatos(rut, nombre, correo);
+        return ResponseEntity.ok("Datos actualizados.");
+    }
+
+    // ✅ Recuperar contraseña
+    @PostMapping("/recuperar-contrasena/{rut}")
+    public ResponseEntity<String> recuperarContrasena(@PathVariable String rut) {
+        usuarioService.recuperarContrasena(rut);
+        return ResponseEntity.ok("Instrucciones de recuperación enviadas.");
+    }
+
+    // ✅ Obtener perfil del usuario autenticado
+    @GetMapping("/perfil")
+    public Usuario obtenerPerfil(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return userDetails.getUsuario();
+    }
+}
+
+UsuarioKotlinController es el controller que usamos para el front de Android, es decir, el que nos compete:
+package com.example.SaveUp.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.SaveUp.DTO.UsuarioKotlinDTO;
+import com.example.SaveUp.model.Usuario;
+import com.example.SaveUp.service.UsuarioService;
+
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+@RestController
+@RequestMapping("/api/usuariosK")
+public class UsuarioKotlinController {
+
+    @Autowired
+    private UsuarioService usuarioService;
+
+    @GetMapping("/{rut}")
+    public ResponseEntity<UsuarioKotlinDTO> getUsuarioByRut(@PathVariable String rut) {
+        Usuario usuarioEntity = usuarioService.findByRut(rut);
+
+        if (usuarioEntity == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        UsuarioKotlinDTO usuarioDTO = convertToDto(usuarioEntity);
+        return ResponseEntity.ok(usuarioDTO);
+    }
+
+    private UsuarioKotlinDTO convertToDto(Usuario entity) {
+        return new UsuarioKotlinDTO(
+            entity.getRut(),
+            entity.getNombre(),
+            entity.getApellido(),
+            entity.getEmail(),
+            null,  // Se omite la contraseña en la respuesta
+            entity.getFechaRegistro()
+        );
+    }
+
+    /**
+     * Endpoint para registrar un nuevo usuario desde la aplicación Android.
+     *
+     * @param usuarioDTO Los datos del usuario a registrar, recibidos en el cuerpo de la petición.
+     * @return Una respuesta HTTP 201 (Created) si el registro es exitoso,
+     *         o una respuesta HTTP 409 (Conflict) si el usuario ya existe.
+     */
+    @PostMapping("/register")
+    public ResponseEntity<Void> registerUsuario(@RequestBody UsuarioKotlinDTO usuarioDTO) {
+        try {
+            usuarioService.registrarUsuarioDesdeApp(usuarioDTO);
+            // Si el registro es exitoso, devuelve el código de estado 201 Created.
+            return new ResponseEntity<>(HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            // Si el servicio lanza una excepción (porque el usuario ya existe),
+            // devuelve el código de estado 409 Conflict.
+            // Podríamos también devolver el mensaje de error en el cuerpo si quisiéramos.
+            return new ResponseEntity<>(HttpStatus.CONFLICT);
+        }
+    }
+}
+
+Pasa lo mismo con UsuarioDTO, solo nos incumbe el UsuarioKotlinDTO:
+
+package com.example.SaveUp.DTO;
+
+import java.util.Date;
+import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class UsuarioKotlinDTO {
+    private String rut;
+    private String nombre;
+    private String apellido;
+    private String email;
+    private String contrasena;
+    private Date fechaRegistro;
+}
+
+como dato adicional, SecurityConfig:
+package com.example.SaveUp.security;
+
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@RequiredArgsConstructor
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final UserDetailsService userDetailsService;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            // 1) CSRF deshabilitado
+            .csrf(AbstractHttpConfigurer::disable)
+            // 2) CORS según tu WebConfig
+            .cors(Customizer.withDefaults())
+            // 3) Sesión stateless
+            .sessionManagement(sm -> sm
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            // 4) Manejo de errores: 401 si no está autenticado
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((req, res, authEx) ->
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, authEx.getMessage())
+                )
+            )
+            // 5) Autorización de rutas
+            .authorizeHttpRequests(auth -> auth
+                // Preflight CORS
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                // ================== INICIO DEL CAMBIO ==================
+                // Permitir el endpoint de registro de la app Kotlin
+                .requestMatchers(HttpMethod.POST, "/api/usuariosK/register").permitAll()
+                // =================== FIN DEL CAMBIO ====================
+
+                // Mantener tus rutas existentes para la web u otras partes
+                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/recuperar/validar",
+                                         "/api/auth/recuperar/actualizar")
+                  .permitAll()
+                // Recuperar contraseña
+                .requestMatchers(HttpMethod.GET, "/api/usuarios/recuperar-contrasena/**").permitAll()
+
+                // Resto protegido
+                .anyRequest().authenticated()
+            )
+            // 6) Proveedor de autenticación y filtro JWT
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config
+    ) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+
+
+
 ```
