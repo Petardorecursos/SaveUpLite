@@ -1,11 +1,9 @@
 package com.example.saveuplite.api
 
-// Importa la interfaz ApiService del paquete 'remote'
-import com.example.saveuplite.remote.ApiService
+// Importa la interfaz ApiService del MISMO paquete
+import com.example.saveuplite.api.ApiService
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-
-/**
+import retrofit2.converter.gson.GsonConverterFactory/**
  * Objeto singleton para crear y gestionar la instancia de Retrofit.
  */
 object RetrofitClient {
@@ -24,7 +22,7 @@ object RetrofitClient {
             .build()
     }
 
-    // Expone públicamente la implementación de la interfaz ApiService del paquete 'remote'.
+    // Expone públicamente la implementación de la interfaz ApiService.
     val apiService: ApiService by lazy {
         retrofit.create(ApiService::class.java)
     }
