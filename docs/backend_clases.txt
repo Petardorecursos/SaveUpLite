@@ -1,0 +1,497 @@
+Todas las clases con las que trabajaremos la conexión al backend, para la tabla Usuario.
+Entidad:
+package com.example.saveup.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import java.util.Date;
+
+@Entity
+@Table(name = "USUARIO")
+@Data // Genera getters, setters, toString, etc.
+@NoArgsConstructor
+@AllArgsConstructor
+public class Usuario {
+
+    @Id
+    @Column(name = "ID_USUARIO", unique = true)
+    private String rut;
+
+    @Column(name = "NOMBRE", nullable = false)
+    private String nombre;
+
+    @Column(name = "APELLIDO", nullable = false)
+    private String apellido;
+
+    @Column(name = "EMAIL", nullable = false, unique = true)
+    private String email;
+
+    @Column(name = "CONTRASENA_HASH", nullable = false, length = 100)
+    private String contrasena;
+
+    @Column(name = "FECHA_REGISTRO", nullable = false, updatable = false)
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date fechaRegistro;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.fechaRegistro == null) {
+            this.fechaRegistro = new Date();
+        }
+    }
+}
+
+repositorio:
+package com.example.saveup.repository;
+
+import com.example.saveup.model.Usuario;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;import java.util.Optional;
+
+@Repository
+public interface UsuarioRepository extends JpaRepository<Usuario, String> {
+
+    // Método para buscar por email de forma eficiente. Clave para el login.
+    Optional<Usuario> findByEmail(String email);
+
+    // Método para verificar si un email ya existe.
+    boolean existsByEmail(String email);
+}
+
+dto:
+package com.example.saveup.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+@Data
+public class UsuarioRegistroDTO {
+
+    @NotBlank(message = "El RUT es obligatorio")
+    @Pattern(regexp = "^\\d{7,8}-[\\dkK]{1}$", message = "El RUT debe tener un formato válido (ej: 12345678-9)")
+    private String rut;
+
+    @NotBlank(message = "El nombre es obligatorio")
+    @Size(min = 2, max = 50, message = "El nombre debe tener entre 2 y 50 caracteres")
+    private String nombre;
+
+    @NotBlank(message = "El apellido es obligatorio")
+    @Size(min = 2, max = 50, message = "El apellido debe tener entre 2 y 50 caracteres")
+    private String apellido;
+
+    @NotBlank(message = "El correo es obligatorio")
+    @Email(message = "El formato del correo no es válido")
+    private String email;
+
+    @NotBlank(message = "La contraseña es obligatoria")
+    @Size(min = 8, max = 20, message = "La contraseña debe tener entre 8 y 20 caracteres")
+    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).*$", message = "La contraseña debe contener al menos una letra y un número")
+    private String contrasena;
+}
+
+controller:
+package com.example.saveup.controller;
+
+import com.example.saveup.dto.UsuarioRegistroDTO;
+import com.example.saveup.service.UsuarioService;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/usuarios")
+public class UsuarioController {
+
+    @Autowired
+    private UsuarioService usuarioService;
+
+    @PostMapping("/register")
+    public ResponseEntity<?> registerUsuario(@Valid @RequestBody UsuarioRegistroDTO usuarioDTO) {
+        try {
+            usuarioService.registrarUsuario(usuarioDTO);
+            // Respuesta exitosa sin devolver datos sensibles.
+            return new ResponseEntity<>(Map.of("message", "Usuario registrado exitosamente"), HttpStatus.CREATED);
+        } catch (IllegalStateException e) {
+            // Error de negocio (ej. RUT o email duplicado).
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.CONFLICT);
+        } catch (Exception e) {
+            // Captura de cualquier otro error inesperado.
+            return new ResponseEntity<>(Map.of("error", "Ocurrió un error inesperado en el servidor."), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+}
+
+service:
+package com.example.saveup.service;
+
+import com.example.saveup.dto.UsuarioRegistroDTO;
+import com.example.saveup.model.Usuario;
+import com.example.saveup.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+public class UsuarioService {
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    /**
+     * Registra un nuevo usuario en el sistema.
+     * Valida la existencia, codifica la contraseña y guarda el nuevo usuario.
+     *
+     * @param usuarioDTO Datos del usuario provenientes del frontend.
+     * @return El usuario guardado en la base de datos.
+     * @throws IllegalStateException si el RUT o el email ya están en uso.
+     */
+    public Usuario registrarUsuario(UsuarioRegistroDTO usuarioDTO) {
+        if (usuarioRepository.existsById(usuarioDTO.getRut())) {
+            throw new IllegalStateException("El RUT ingresado ya está registrado.");
+        }
+        if (usuarioRepository.existsByEmail(usuarioDTO.getEmail())) {
+            throw new IllegalStateException("El correo electrónico ya está en uso.");
+        }
+
+        Usuario nuevoUsuario = new Usuario();
+        nuevoUsuario.setRut(usuarioDTO.getRut());
+        nuevoUsuario.setNombre(usuarioDTO.getNombre());
+        nuevoUsuario.setApellido(usuarioDTO.getApellido());
+        nuevoUsuario.setEmail(usuarioDTO.getEmail());
+
+        // --- PUNTO CLAVE DE SEGURIDAD ---
+        // Codificar la contraseña antes de guardarla.
+        nuevoUsuario.setContrasena(passwordEncoder.encode(usuarioDTO.getContrasena()));
+
+        return usuarioRepository.save(nuevoUsuario);
+    }
+}
+
+
+Clases adicionales de configuración:
+
+webconfig:
+package com.example.saveup.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Value("${app.cors.allowed-origins}")
+    private String[] allowedOrigins;
+
+    @Value("${app.cors.allowed-methods}")
+    private String[] allowedMethods;
+
+    @Value("${app.cors.allowed-headers}")
+    private String[] allowedHeaders;
+
+    @Value("${app.cors.allow-credentials}")
+    private boolean allowCredentials;
+
+    @Value("${app.cors.max-age}")
+    private long maxAge;
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**") // Aplica CORS a todos los endpoints bajo /api/
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods(allowedMethods)
+                .allowedHeaders(allowedHeaders)
+                .allowCredentials(allowCredentials)
+                .maxAge(maxAge);
+    }
+}
+
+securityConfig:
+package com.example.saveup.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            // Deshabilitar CSRF porque estamos creando una API REST sin estado.
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                // --- PUNTO CLAVE ---
+                // Permitir el acceso público al endpoint de registro.
+                .requestMatchers(HttpMethod.POST, "/api/usuarios/register").permitAll()
+                // Por ahora, permite el acceso a otros endpoints para facilitar el desarrollo.
+                // Más adelante puedes hacer esto más restrictivo.
+                .anyRequest().permitAll()
+            );
+
+        return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        // --- PUNTO CLAVE ---
+        // Bean que estará disponible en toda la aplicación para codificar contraseñas.
+        return new BCryptPasswordEncoder();
+    }
+}
+
+DataSourceConfig:
+package com.example.saveup.config;
+
+import oracle.ucp.jdbc.PoolDataSource;
+import oracle.ucp.jdbc.PoolDataSourceFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+
+import javax.sql.DataSource;
+import java.sql.SQLException;
+
+@Configuration
+public class DataSourceConfig {
+
+    // Inyectamos los valores desde application-dev.properties
+    @Value("${spring.datasource.username}")
+    private String username;
+
+    @Value("${spring.datasource.password}")
+    private String password;
+
+    @Value("${spring.datasource.url}")
+    private String url;
+
+    @Bean
+    public DataSource dataSource() throws SQLException {
+        // 1. Usamos la fábrica de Oracle para crear una instancia del PoolDataSource (UCP).
+        PoolDataSource dataSource = PoolDataSourceFactory.getPoolDataSource();
+
+        // 2. Le pasamos los parámetros de conexión que leímos del .properties.
+        dataSource.setUser(username);
+        dataSource.setPassword(password);
+        dataSource.setURL(url);
+
+        // 3. Establecemos propiedades críticas para el funcionamiento del pool.
+        dataSource.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
+        dataSource.setFastConnectionFailoverEnabled(true);
+        dataSource.setInitialPoolSize(5); // Número de conexiones iniciales.
+        dataSource.setMinPoolSize(5);
+        dataSource.setMaxPoolSize(20); // Número máximo de conexiones.
+
+        System.out.println("DataSource de Oracle UCP configurado manualmente.");
+
+        // 4. Devolvemos el DataSource configurado. Spring Boot lo usará para todo.
+        return dataSource;
+    }
+}
+
+recursos:
+application.properties:
+# Nombre de la aplicación
+spring.application.name=SaveUp
+
+# Puerto en el que correrá el servidor del backend
+server.port=8080
+
+# --- Perfil Activo ---
+# Activa el perfil "dev". Spring Boot buscará y cargará automáticamente
+# el archivo "application-dev.properties" para la configuración específica.
+spring.profiles.active=dev
+
+# Clave secreta para JWT (JSON Web Tokens) - Guárdala de forma segura
+# Puedes mover esto al perfil 'dev' si tienes claves diferentes por entorno.
+jwt.secret=mi_clave_secreta_super_segura_para_jwt_123456
+jwt.expirationInMs=86400000
+# 24 horas en milisegundos
+
+application-dev.properties:
+# -------------------------------------------------------------------
+# ================ PERFIL DE DESARROLLO (dev) =======================
+# -------------------------------------------------------------------
+
+# --- Configuración de la Base de Datos Oracle ---
+# Estos valores ahora son leídos por nuestra clase DataSourceConfig.
+spring.datasource.username=lite
+spring.datasource.password=RixarLlama2006ColoColoXD
+spring.datasource.url=jdbc:oracle:thin:@base3_high?TNS_ADMIN=G:/LITE_BACK/saveup/src/main/resources/wallet
+
+# --- Configuración de JPA y Hibernate ---
+spring.jpa.hibernate.ddl-auto=create
+# 'update': Actualiza el esquema de la BD al iniciar (ideal para desarrollo).
+# Usa 'validate' o 'none' en producción para evitar cambios accidentales.
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.OracleDialect
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# --- Configuración de Logs para Depuración ---
+# Muestra información detallada sobre las consultas SQL, conexiones y transacciones.
+# Muy útil para depurar errores de base de datos.
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.type.descriptor.sql=TRACE
+logging.level.org.springframework.jdbc.core=TRACE
+logging.level.com.zaxxer.hikari=DEBUG
+
+
+# --- Configuración de CORS para Desarrollo ---
+# Permite que tu aplicación frontend (Android, Ionic, etc.) que corre en un origen diferente
+# (ej. localhost) pueda comunicarse con el backend.
+app.cors.allowed-origins=http://localhost:8100,http://localhost:4200,capacitor://localhost,http://localhost
+app.cors.allowed-methods=GET,POST,PUT,DELETE,OPTIONS
+app.cors.allowed-headers=Authorization,Content-Type,X-Requested-With
+app.cors.allow-credentials=true
+app.cors.max-age=3600
+
+
+pom.xml:
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <!-- Nota: Si 3.5.7 no existe, puedes usar una versión estable como 3.3.0 -->
+        <version>3.3.0</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>saveup</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>saveup_lite</name>
+    <description>Backend para saveup Lite</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <!-- Propiedad para centralizar la versión de todas las dependencias de Oracle -->
+        <oracle.version>23.4.0.24.05</oracle.version>
+    </properties>
+
+    <dependencies>
+        <!-- === DEPENDENCIAS ESENCIALES DE SPRING BOOT === -->
+
+        <!-- Para JPA, Repositorios y Hibernate -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Para crear APIs REST (Controladores, etc.) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Para seguridad (manejo de contraseñas, protección de endpoints) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Para usar anotaciones de validación como @Valid, @NotBlank, etc. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Para reducir código boilerplate (getters, setters, etc.) -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Dependencia para HATEOAS, si la necesitas -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-hateoas</artifactId>
+        </dependency>
+
+
+        <!-- === CONJUNTO COMPLETO Y DEFINITIVO DE DEPENDENCIAS DE ORACLE === -->
+
+        <!-- 1. Universal Connection Pool (UCP): El gestor del pool de conexiones. -->
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ucp</artifactId>
+            <version>${oracle.version}</version>
+        </dependency>
+
+        <!-- 2. Driver JDBC Principal: El driver que UCP usa internamente. -->
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
+            <version>${oracle.version}</version>
+        </dependency>
+
+        <!-- 3. Dependencias de Seguridad: Contienen las clases para Wallet/SSL (el error que tuviste). -->
+        <dependency>
+            <groupId>com.oracle.database.security</groupId>
+            <artifactId>oraclepki</artifactId>
+            <version>${oracle.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11-production</artifactId>
+            <version>${oracle.version}</version>
+            <type>pom</type>
+        </dependency>
+
+        <!-- === DEPENDENCIAS DE TEST === -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Plugin de Spring Boot (configuración estándar) -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
