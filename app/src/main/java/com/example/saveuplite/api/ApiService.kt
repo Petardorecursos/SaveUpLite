@@ -1,11 +1,11 @@
 package com.example.saveuplite.api
 
-import com.example.saveuplite.model.Usuario // <-- ESTA ES LA LÍNEA CORREGIDA
+import com.example.saveuplite.model.Usuario
+import com.example.saveuplite.model.dto.UsuarioLoginDTO
+import com.example.saveuplite.model.dto.UsuarioRegistroDTO
 import retrofit2.Response
 import retrofit2.http.Body
-import retrofit2.http.GET
 import retrofit2.http.POST
-import retrofit2.http.Path
 
 /**
  * Interfaz que define todos los endpoints de la API para Retrofit.
@@ -13,21 +13,20 @@ import retrofit2.http.Path
 interface ApiService {
 
     /**
-     * Obtiene un usuario por su RUT desde el backend.
-     *
-     * @param rut El RUT del usuario a buscar.
-     * @return El objeto Usuario.
-     */
-    @GET("api/usuariosK/{rut}")
-    suspend fun getUsuarioByRut(@Path("rut") rut: String): Usuario
-
-    /**
      * Registra un nuevo usuario en el backend.
      *
-     * @param usuario El objeto Usuario a registrar.
-     * @return Una respuesta vacía para indicar éxito o fracaso.
+     * @param usuarioDTO El objeto con los datos de registro del usuario.
+     * @return Una respuesta del servidor. Un 201 CREATED si es exitoso.
      */
-    @POST("api/usuariosK/register")
-    suspend fun registerUsuario(@Body usuario: Usuario): Response<Void>
-}
+    @POST("api/usuarios/register")
+    suspend fun registerUsuario(@Body usuarioDTO: UsuarioRegistroDTO): Response<Void>
 
+    /**
+     * Autentica a un usuario contra el backend.
+     *
+     * @param loginDTO El objeto con las credenciales de login.
+     * @return Una respuesta del servidor con el objeto Usuario si es exitoso.
+     */
+    @POST("api/usuarios/login")
+    suspend fun loginUsuario(@Body loginDTO: UsuarioLoginDTO): Response<Usuario>
+}

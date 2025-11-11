@@ -42,31 +42,38 @@ fun AuthScreen(
     var nombre by remember { mutableStateOf("") }
     var apellido by remember { mutableStateOf("") }
 
-    // --- Estados para los errores de validación ---
+    // --- Estados para los errores de validación locales ---
     var emailError by remember { mutableStateOf<String?>(null) }
     var contrasenaError by remember { mutableStateOf<String?>(null) }
     var rutError by remember { mutableStateOf<String?>(null) }
     var nombreError by remember { mutableStateOf<String?>(null) }
     var apellidoError by remember { mutableStateOf<String?>(null) }
 
+    // Limpia los campos cuando cambiamos entre Login y Registro
+    LaunchedEffect(isLoginScreen) {
+        email = ""
+        contrasena = ""
+        rut = ""
+        nombre = ""
+        apellido = ""
+        viewModel.clearErrors()
+    }
+
     fun validateFields(): Boolean {
-        // Limpiar errores previos
         emailError = null
         contrasenaError = null
         rutError = null
         nombreError = null
         apellidoError = null
-
         var isValid = true
 
-        // --- Validaciones para el REGISTRO ---
         if (!isLoginScreen) {
-            if (nombre.isBlank() || nombre.length < 3) {
-                nombreError = "El nombre debe tener al menos 3 caracteres"
+            if (nombre.isBlank() || nombre.length < 2) {
+                nombreError = "El nombre debe tener al menos 2 caracteres"
                 isValid = false
             }
-            if (apellido.isBlank() || apellido.length < 3) {
-                apellidoError = "El apellido debe tener al menos 3 caracteres"
+            if (apellido.isBlank() || apellido.length < 2) {
+                apellidoError = "El apellido debe tener al menos 2 caracteres"
                 isValid = false
             }
             val rutRegex = "^\\d{7,8}-[\\dkK]{1}$".toRegex()
@@ -76,22 +83,20 @@ fun AuthScreen(
             }
         }
 
-        // --- Validaciones comunes (Login y Registro) ---
-        val emailRegex = "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$".toRegex()
+        val emailRegex = "^[\\w-\\.+]*[\\w-]?@([\\w-]+\\.)+[\\w-]{2,4}$".toRegex()
         if (!email.matches(emailRegex)) {
             emailError = "Formato de correo inválido"
             isValid = false
         }
-        val passwordRegex = "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{7,20}$".toRegex()
+        val passwordRegex = "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{8,20}$".toRegex()
         if (!contrasena.matches(passwordRegex)) {
-            contrasenaError = "La contraseña debe tener 7-20 caracteres, con letras y números"
+            contrasenaError = "La contraseña debe tener 8-20 caracteres, con letras y números"
             isValid = false
         }
-
         return isValid
     }
 
-    // Navegar a Home si la autenticación es exitosa
+    // Navegación en caso de login exitoso
     LaunchedEffect(uiState.isAuthenticated) {
         if (uiState.isAuthenticated) {
             Toast.makeText(context, "¡Bienvenido, ${uiState.currentUser?.nombre}!", Toast.LENGTH_SHORT).show()
@@ -101,63 +106,63 @@ fun AuthScreen(
         }
     }
 
-    // Mostrar mensaje de error si existe (errores de ViewModel)
+    // Manejo del registro exitoso
+    LaunchedEffect(uiState.registrationSuccess) {
+        if (uiState.registrationSuccess) {
+            Toast.makeText(context, "¡Registro exitoso! Por favor, inicia sesión.", Toast.LENGTH_LONG).show()
+            isLoginScreen = true // Cambia a la pantalla de login
+            viewModel.resetRegistrationSuccess() // Resetea el estado
+        }
+    }
+
+    // Mostrar errores del ViewModel
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            viewModel.clearErrors() // Limpia el error después de mostrarlo
+            viewModel.clearErrors()
         }
     }
 
-    // *** NUEVO: Muestra el resultado de la llamada a la API ***
-    LaunchedEffect(uiState.currentUser) {
-        // Se muestra solo si hay un usuario pero no estamos autenticados (distingue la llamada a la API del login)
-        if (uiState.currentUser != null && !uiState.isAuthenticated) {
-            Toast.makeText(context, "API: Usuario encontrado: ${uiState.currentUser?.nombre}", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    val gradient = Brush.verticalGradient(colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.background))
+    val gradient = Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.background))
 
     Box(
         modifier = Modifier.fillMaxSize().background(gradient).padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "SaveUp Lite", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
-            Spacer(modifier = Modifier.height(24.dp))
+            Text("SaveUp Lite", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+            Spacer(Modifier.height(24.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
-                    Text(text = if (isLoginScreen) "Bienvenido de Nuevo" else "Crea tu Cuenta", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                    Spacer(modifier = Modifier.height(24.dp))
+                Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = if (isLoginScreen) "Bienvenido de Nuevo" else "Crea tu Cuenta",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(24.dp))
 
-                    // --- Campos del Formulario con Validaciones ---
                     if (!isLoginScreen) {
                         OutlinedTextField(value = rut, onValueChange = { rut = it; rutError = null }, label = { Text("RUT") }, isError = rutError != null, supportingText = { rutError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
-                        
-                        // *** NUEVO: Botón para probar la API ***
-                        TextButton(onClick = { viewModel.fetchUsuarioFromApi(rut) }) {
-                            Text("Buscar RUT en backend (API)")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(Modifier.height(8.dp))
                         OutlinedTextField(value = nombre, onValueChange = { nombre = it; nombreError = null }, label = { Text("Nombre") }, isError = nombreError != null, supportingText = { nombreError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(Modifier.height(8.dp))
                         OutlinedTextField(value = apellido, onValueChange = { apellido = it; apellidoError = null }, label = { Text("Apellido") }, isError = apellidoError != null, supportingText = { apellidoError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(Modifier.height(8.dp))
                     }
                     OutlinedTextField(value = email, onValueChange = { email = it; emailError = null }, label = { Text("Email") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), isError = emailError != null, supportingText = { emailError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = contrasena, onValueChange = { contrasena = it; contrasenaError = null }, label = { Text("Contraseña") }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), isError = contrasenaError != null, supportingText = { contrasenaError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(Modifier.height(24.dp))
 
                     if (uiState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                        CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
                     } else {
                         Button(
                             onClick = {
@@ -174,9 +179,8 @@ fun AuthScreen(
                             Text(if (isLoginScreen) "Iniciar Sesión" else "Registrarme")
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    TextButton(onClick = { isLoginScreen = !isLoginScreen; viewModel.clearErrors() }) {
+                    Spacer(Modifier.height(16.dp))
+                    TextButton(onClick = { isLoginScreen = !isLoginScreen }) {
                         Text(if (isLoginScreen) "¿No tienes cuenta? Regístrate" else "Ya tengo una cuenta")
                     }
                 }

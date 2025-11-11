@@ -4,113 +4,106 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.saveuplite.api.RetrofitClient
-import com.example.saveuplite.data.DatabaseHelper
 import com.example.saveuplite.model.Usuario
+import com.example.saveuplite.model.dto.UsuarioLoginDTO
+import com.example.saveuplite.model.dto.UsuarioRegistroDTO
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Date
+import java.io.IOException
 
 data class AuthUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val isAuthenticated: Boolean = false,
+    val registrationSuccess: Boolean = false,
     val currentUser: Usuario? = null
 )
 
 class UsuarioViewModel(application: Application) : AndroidViewModel(application) {
 
-    // El dbHelper se mantiene, ya que lo usaremos para el login y otras funciones locales.
-    private val dbHelper = DatabaseHelper(application)
-
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState = _uiState.asStateFlow()
-
-    fun fetchUsuarioFromApi(rut: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            try {
-                val user = withContext(Dispatchers.IO) {
-                    RetrofitClient.apiService.getUsuarioByRut(rut)
-                }
-                _uiState.update { it.copy(isLoading = false, currentUser = user) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Error al obtener usuario: ${e.message}") }
-            }
-        }
-    }
 
     fun login(email: String, contrasena: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            // NOTA: El login todavía es local. Un siguiente paso sería hacerlo contra la API.
-            val user = withContext(Dispatchers.IO) {
-                dbHelper.obtenerAuthUsuarioPorEmail(email)
-            }
-
-            if (user != null && user.contrasena == contrasena) {
-                _uiState.update { it.copy(isLoading = false, isAuthenticated = true, currentUser = user) }
-            } else {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Credenciales inválidas.") }
-            }
-        }
-    }
-
-    // ======================================================================================
-    // === FUNCIÓN "REGISTER" ACTUALIZADA PARA USAR LA API REST =============================
-    // ======================================================================================
-    fun register(rut: String, nombre: String, apellido: String, email: String, contrasena: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-
-            // 1. Crear el objeto Usuario para enviarlo a la API.
-            //    La fecha de registro puede ser generada por el backend, pero enviarla no causa problemas.
-            val newUser = Usuario(
-                rut = rut,
-                nombre = nombre,
-                apellido = apellido,
-                email = email,
-                contrasena = contrasena, // La contraseña se envía en texto plano a la API; el backend se encarga de hashearla.
-                fechaRegistro = Date()
-            )
+            // 1. Crear el DTO para el login.
+            val loginDTO = UsuarioLoginDTO(email, contrasena)
 
             try {
                 // 2. Ejecutar la llamada a la API en el hilo de I/O.
                 val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.apiService.registerUsuario(newUser)
+                    RetrofitClient.apiService.loginUsuario(loginDTO)
                 }
 
                 // 3. Manejar la respuesta del servidor.
-                if (response.isSuccessful) {
-                    // CÓDIGO 201 (CREATED): El registro fue exitoso.
-                    // Autenticamos al usuario y lo guardamos en el estado.
+                if (response.isSuccessful && response.body() != null) {
+                    // CÓDIGO 200 (OK): Autenticación exitosa.
+                    val user = response.body()!!
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             isAuthenticated = true,
-                            currentUser = newUser.copy(contrasena = null) // Guardamos el usuario en el estado sin la contraseña.
+                            currentUser = user // Guardamos el usuario devuelto por la API
                         )
                     }
                 } else {
-                    // CÓDIGO 409 (CONFLICT) u otro error del servidor.
+                    // CÓDIGOS DE ERROR (401, 404, etc.)
                     val errorMessage = when (response.code()) {
-                        409 -> "El RUT o el correo electrónico ya están registrados."
-                        else -> "Error en el registro (Código: ${response.code()})."
+                        401 -> "Credenciales inválidas. Verifica tu email y contraseña."
+                        else -> "Error de autenticación (Código: ${response.code()})."
+                    }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = errorMessage) }
+                }
+
+            } catch (e: IOException) {
+                // 4. Manejar errores de conexión (sin internet, servidor caído).
+                _uiState.update { it.copy(isLoading = false, errorMessage = "No se pudo conectar al servidor. Verifica tu conexión.") }
+            } catch (e: Exception) {
+                // 5. Manejar cualquier otro error inesperado.
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Ocurrió un error inesperado: ${e.message}") }
+            }
+        }
+    }
+
+    fun register(rut: String, nombre: String, apellido: String, email: String, contrasena: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, registrationSuccess = false) }
+
+            val userDTO = UsuarioRegistroDTO(
+                rut = rut,
+                nombre = nombre,
+                apellido = apellido,
+                email = email,
+                contrasena = contrasena
+            )
+
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    RetrofitClient.apiService.registerUsuario(userDTO)
+                }
+
+                if (response.isSuccessful) {
+                    _uiState.update { it.copy(isLoading = false, registrationSuccess = true) }
+                } else {
+                    val errorMessage = when (response.code()) {
+                        400 -> "Datos inválidos. Revisa el formato del RUT, la contraseña o el email."
+                        409 -> "El RUT o el correo electrónico ya se encuentran registrados."
+                        else -> "Error en el registro (Código: ${response.code()}). Inténtalo de nuevo."
                     }
                     _uiState.update { it.copy(isLoading = false, errorMessage = errorMessage) }
                 }
 
             } catch (e: Exception) {
-                // 4. Manejar errores de conexión (ej. sin internet, servidor caído).
-                _uiState.update { it.copy(isLoading = false, errorMessage = "No se pudo conectar al servidor: ${e.message}") }
+                _uiState.update { it.copy(isLoading = false, errorMessage = "No se pudo conectar al servidor. Verifica tu conexión a internet.") }
             }
         }
     }
-
 
     fun logout() {
         _uiState.value = AuthUiState()
@@ -118,5 +111,9 @@ class UsuarioViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearErrors() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun resetRegistrationSuccess() {
+        _uiState.update { it.copy(registrationSuccess = false) }
     }
 }
