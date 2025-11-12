@@ -1,15 +1,11 @@
 package com.example.saveuplite.ui.screens.dashboard
 
 import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,36 +15,28 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.example.saveuplite.model.EventoSaldo
-import com.example.saveuplite.model.Saldo
+import com.example.saveuplite.model.dto.MovimientoResponseDTO
+import com.example.saveuplite.model.enums.TipoMovimiento
 import com.example.saveuplite.ui.navigation.Routes
-import com.example.saveuplite.viewmodel.SaldoViewModel
+import com.example.saveuplite.viewmodel.DashboardViewModel
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -62,9 +50,9 @@ import kotlin.math.abs
 fun DashboardScreen(
     navController: NavHostController,
     usuarioViewModel: UsuarioViewModel = viewModel(),
-    saldoViewModel: SaldoViewModel = viewModel()
+    dashboardViewModel: DashboardViewModel = viewModel()
 ) {
-    val saldoState by saldoViewModel.uiState.collectAsState()
+    val dashboardState by dashboardViewModel.uiState.collectAsState()
     val usuarioState by usuarioViewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -73,15 +61,12 @@ fun DashboardScreen(
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
-    var tipoMovimiento by remember { mutableStateOf(EventoSaldo.INGRESO) }
+    var tipoMovimientoDialog by remember { mutableStateOf(TipoMovimiento.INGRESO_GENERAL) }
 
-    // --- URI temporal para la cámara ---
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) {
-        if (it) {
-            profileImageUri = tempCameraUri // <-- SOLO ACTUALIZAR LA UI DESPUÉS DE QUE LA CÁMARA CONFIRMA
-        }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) { profileImageUri = tempCameraUri }
     }
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
         profileImageUri = it
@@ -91,8 +76,8 @@ fun DashboardScreen(
             val imageDir = File(context.filesDir, "images").apply { mkdirs() }
             val photoFile = File(imageDir, "profile_image_${System.currentTimeMillis()}.jpg")
             val photoUri = FileProvider.getUriForFile(context, "com.example.saveuplite.fileprovider", photoFile)
-            tempCameraUri = photoUri // <-- Guardar la URI temporalmente
-            cameraLauncher.launch(photoUri) // Lanzar la cámara
+            tempCameraUri = photoUri
+            cameraLauncher.launch(photoUri)
         } else {
             Toast.makeText(context, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
         }
@@ -105,8 +90,17 @@ fun DashboardScreen(
         }
     }
 
+    // Carga los datos del dashboard cuando el usuario está disponible
     LaunchedEffect(usuarioState.currentUser) {
-        usuarioState.currentUser?.rut?.let { saldoViewModel.cargarDatosSaldo(it) }
+        usuarioState.currentUser?.rut?.let { dashboardViewModel.cargarDatosDashboard(it) }
+    }
+
+    // Muestra errores del ViewModel
+    LaunchedEffect(dashboardState.errorMessage) {
+        dashboardState.errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            dashboardViewModel.clearError()
+        }
     }
 
     val gradient = Brush.verticalGradient(colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.background))
@@ -123,32 +117,35 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxSize().background(gradient).padding(padding).padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                BalanceCard(saldoState.saldoActual)
-                Spacer(modifier = Modifier.height(24.dp))
-                ActionButtons(
-                    onIngresoClick = { tipoMovimiento = EventoSaldo.INGRESO; showDialog = true },
-                    onGastoClick = { tipoMovimiento = EventoSaldo.GASTO; showDialog = true }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(onClick = { navController.navigate(Routes.LEGACY_HOME) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Funciones Adicionales")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.ArrowForward, contentDescription = "Ir a funciones adicionales")
+                if(dashboardState.isLoading && dashboardState.historialMovimientos.isEmpty()) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                } else {
+                    BalanceCard(dashboardState.saldoActual)
+                    Spacer(modifier = Modifier.height(24.dp))
+                    ActionButtons(
+                        onIngresoClick = { tipoMovimientoDialog = TipoMovimiento.INGRESO_GENERAL; showDialog = true },
+                        onGastoClick = { tipoMovimientoDialog = TipoMovimiento.GASTO_GENERAL; showDialog = true }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(onClick = { navController.navigate(Routes.LEGACY_HOME) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Funciones Adicionales (Legacy)")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = "Ir a funciones adicionales")
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    TransactionHistory(dashboardState.historialMovimientos)
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                TransactionHistory(saldoState.historialMovimientos)
             }
         }
     }
 
     if (showDialog) {
         AddTransactionDialog(
-            tipo = tipoMovimiento,
+            tipo = tipoMovimientoDialog,
             onDismiss = { showDialog = false },
-            onConfirm = { monto ->
-                usuarioState.currentUser?.rut?.let { rut -> 
-                    saldoViewModel.agregarMovimiento(rut, monto, tipoMovimiento)
+            onConfirm = { monto, descripcion ->
+                usuarioState.currentUser?.rut?.let { rut ->
+                    dashboardViewModel.registrarMovimiento(rut, monto, descripcion, tipoMovimientoDialog)
                 }
                 showDialog = false
             }
@@ -222,7 +219,7 @@ private fun TopBar(scope: CoroutineScope, drawerState: DrawerState) {
 }
 
 @Composable
-fun BalanceCard(saldoActual: Float) {
+fun BalanceCard(saldoActual: Double) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Saldo Actual", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -249,43 +246,54 @@ fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
 }
 
 @Composable
-fun TransactionHistory(historial: List<Saldo>) {
+fun TransactionHistory(historial: List<MovimientoResponseDTO>) {
     Text("Historial de Movimientos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
     Spacer(modifier = Modifier.height(16.dp))
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(historial) { saldo ->
-            TransactionItem(item = saldo)
+    if (historial.isEmpty()) {
+        Text("Aún no tienes movimientos.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    } else {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(historial) { movimiento ->
+                TransactionItem(item = movimiento)
+            }
         }
     }
 }
 
 @Composable
-fun TransactionItem(item: Saldo) {
+fun TransactionItem(item: MovimientoResponseDTO) {
     val isIncome = item.monto > 0
     val color = if (isIncome) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
-    val sign = if (isIncome) "+" else "-"
+    val sign = if (isIncome) "+" else ""
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
 
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = item.tipoEvento.name, fontWeight = FontWeight.Bold, color = color)
-                Text(text = dateFormat.format(item.fechaRegistro), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = item.descripcion, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = dateFormat.format(item.fecha), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(text = "$sign $ ${ "%.2f".format(abs(item.monto))}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = color)
+            Text(text = "$sign $ ${ "%.2f".format(item.monto)}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = color)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddTransactionDialog(tipo: EventoSaldo, onDismiss: () -> Unit, onConfirm: (Float) -> Unit) {
+fun AddTransactionDialog(tipo: TipoMovimiento, onDismiss: () -> Unit, onConfirm: (Double, String) -> Unit) {
     var monto by remember { mutableStateOf("") }
+    var descripcion by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (tipo == EventoSaldo.INGRESO) "Añadir Ingreso" else "Añadir Gasto") },
-        text = { OutlinedTextField(value = monto, onValueChange = { monto = it }, label = { Text("Monto") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)) },
-        confirmButton = { Button(onClick = { onConfirm(monto.toFloatOrNull() ?: 0f) }) { Text("Guardar") } },
+        title = { Text(if (tipo == TipoMovimiento.INGRESO_GENERAL) "Añadir Ingreso" else "Añadir Gasto") },
+        text = {
+            Column {
+                OutlinedTextField(value = monto, onValueChange = { monto = it }, label = { Text("Monto") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción") })
+            }
+        },
+        confirmButton = { Button(onClick = { onConfirm(monto.toDoubleOrNull() ?: 0.0, descripcion) }) { Text("Guardar") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
 }

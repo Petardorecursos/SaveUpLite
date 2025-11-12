@@ -1,0 +1,118 @@
+# Arquitectura de Backend - Modelo Orientado a Transacciones
+
+**Versión:** 1.0
+**Autor:** Rui
+**Fecha:** 2024-05-22
+
+## 1. Concepto Clave: Los Movimientos como Fuente Única de Verdad
+
+Esta arquitectura se fundamenta en un principio contable básico: el estado actual de las finanzas (el saldo) no es un dato que se almacena y modifica, sino un **valor que se calcula en tiempo real a partir de un registro histórico inmutable de transacciones**.
+
+- **La entidad `Movimiento` es la reina:** Cada ingreso, gasto, pago de deuda o abono a una meta se registra como un `Movimiento` inalterable.
+- **El `Saldo` es un cálculo:** El saldo total de un usuario es, en cualquier momento, la `SUMA` de todos los montos de sus movimientos. `Saldo Actual = SUM(movimientos.monto)`.
+- **Montos Positivos y Negativos:** Para simplificar el cálculo, los montos se guardan con signo. Los ingresos son positivos (`+1000.0`) y los gastos son negativos (`-50.0`).
+
+Este enfoque garantiza la máxima integridad y consistencia de los datos, eliminando por completo la posibilidad de que el saldo se desincronice del historial de transacciones.
+
+---
+
+## 2. Diseño de Entidades y Tablas
+
+### 2.1. `Usuario` (Ya implementada)
+
+La entidad principal. Cada `Movimiento`, `Deuda` y `MetaAhorro` estará directamente asociada a un `Usuario`.
+
+- `ID_USUARIO` (PK - RUT)
+- `NOMBRE`
+- `APELLIDO`
+- `EMAIL`
+- `CONTRASENA_HASH`
+- `FECHA_REGISTRO`
+
+### 2.2. `Movimiento` (La tabla central)
+
+Contiene el registro de cada transacción monetaria.
+
+- `ID_MOVIMIENTO` (PK, Long, Autoincremental)
+- `MONTO` (Double): El valor de la transacción. **Positivo para ingresos, negativo para gastos**.
+- `DESCRIPCION` (String): Nota descriptiva (ej: "Café de la mañana", "Salario mensual").
+- `FECHA` (Timestamp): Fecha y hora en que se registró el movimiento.
+- `TIPO_MOVIMIENTO` (Enum/String): Categoría para dar contexto (`INGRESO_GENERAL`, `GASTO_GENERAL`, `PAGO_DEUDA`, `ABONO_META`, `RETIRO_META`, etc.).
+- `USUARIO_ID` (FK): Referencia al `ID_USUARIO` al que pertenece el movimiento.
+- `DEUDA_ID` (FK, Nullable): Si el movimiento es un pago/abono, aquí se guarda la referencia a la `ID_DEUDA` correspondiente.
+- `META_ID` (FK, Nullable): Si es un abono/retiro de una meta, aquí se guarda la referencia a la `ID_META`.
+
+### 2.3. `Deuda`
+
+Representa una deuda que el usuario ha contraído y necesita pagar.
+
+- `ID_DEUDA` (PK, Long, Autoincremental)
+- `NOMBRE` (String): Descripción de la deuda (ej: "Préstamo universitario", "Tarjeta de crédito").
+- `MONTO_TOTAL` (Double): El valor original y completo de la deuda.
+- `FECHA_CREACION` (Timestamp): Cuándo se registró la deuda.
+- `USUARIO_ID` (FK): Referencia al `ID_USUARIO` dueño de la deuda.
+
+**Importante:** La `Deuda` no tiene un campo `saldo_pendiente`. Este valor se calcula dinámicamente: `Saldo Pendiente = MONTO_TOTAL - SUM(movimientos.MONTO donde DEUDA_ID = esta_deuda.ID)`.
+
+### 2.4. `MetaAhorro`
+
+Representa un objetivo de ahorro del usuario.
+
+- `ID_META` (PK, Long, Autoincremental)
+- `NOMBRE` (String): Descripción de la meta (ej: "Vacaciones de verano", "Nuevo PC").
+- `MONTO_OBJETIVO` (Double): La cantidad de dinero que se desea alcanzar.
+- `FECHA_CREACION` (Timestamp): Cuándo se fijó la meta.
+- `USUARIO_ID` (FK): Referencia al `ID_USUARIO`.
+
+**Importante:** La `MetaAhorro` no tiene un campo `total_ahorrado`. Este valor se calcula dinámicamente: `Total Ahorrado = SUM(movimientos.MONTO donde META_ID = esta_meta.ID)`.
+
+---
+
+## 3. Flujos de Datos Principales
+
+- **Obtener Saldo Principal:**
+  - `GET /api/saldos/{usuarioId}`
+  - El backend ejecuta: `SELECT SUM(MONTO) FROM Movimiento WHERE USUARIO_ID = ?`.
+
+- **Registrar un Gasto Común:**
+  - `POST /api/movimientos`
+  - El frontend envía: `{ "monto": -15.50, "descripcion": "Almuerzo", "tipo": "GASTO_GENERAL", "usuarioId": ... }`.
+  - El backend crea una nueva fila en la tabla `Movimiento`.
+
+- **Crear una Nueva Deuda:**
+  - `POST /api/deudas`
+  - El frontend envía: `{ "nombre": "Deuda Tarjeta", "montoTotal": 500.0, "usuarioId": ... }`.
+  - El backend crea una nueva fila en la tabla `Deuda`.
+
+- **Abonar a una Deuda:**
+  - `POST /api/movimientos`
+  - El frontend envía: `{ "monto": -100.0, "descripcion": "Abono a Deuda Tarjeta", "tipo": "PAGO_DEUDA", "deudaId": ..., "usuarioId": ... }`.
+  - El backend crea un nuevo `Movimiento` con un monto negativo y lo enlaza a la deuda correspondiente.
+
+- **Obtener Estado de una Deuda:**
+  - `GET /api/deudas/{deudaId}`
+  - El backend recupera la `Deuda` y, por separado, calcula el total abonado con `SELECT SUM(MONTO) FROM Movimiento WHERE DEUDA_ID = ?` para presentarlo en la UI.
+
+---
+
+## 4. Pros y Contras
+
+### Pros:
+
+1.  **Integridad de Datos (Máxima):** Es matemáticamente imposible que el saldo se corrompa o
+desincronice, ya que es un resultado directo del historial de transacciones.
+2.  **Auditabilidad Completa:** Se tiene un registro perfecto de cada operación que afectó el dinero
+ del usuario, lo que facilita la depuración y la implementación de futuras funcionalidades de historial.
+3.  **Escalabilidad y Flexibilidad:** Este modelo es muy fácil de extender. Para añadir "Inversiones",
+ simplemente se crea una entidad `Inversion` y se generan `Movimientos` que la referencien.
+ El núcleo del sistema no se ve afectado.
+4.  **Simplicidad Lógica:** La lógica de negocio para crear transacciones es muy simple:
+siempre es una inserción (`INSERT`) en la tabla `Movimiento`.
+
+### Contras:
+
+1.  **Rendimiento en Cálculos Masivos:** Si un usuario acumula cientos de miles de movimientos,
+calcular el saldo total mediante una suma podría volverse marginalmente más lento que leer un valor pre-calculado.
+   - **Mitigación:** Este es un problema que solo aparece a una escala masiva. Si se llegara a
+    presentar, se puede solucionar fácilmente implementando un sistema de **caching** (ej: Redis)
+    que guarde temporalmente el saldo calculado, o creando vistas materializadas en la base de datos que se actualizan periódicamente.

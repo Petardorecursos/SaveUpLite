@@ -4,8 +4,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import com.example.saveuplite.model.EventoSaldo
-import com.example.saveuplite.model.Saldo
 import com.example.saveuplite.model.Usuario
 import java.util.Date
 
@@ -14,12 +12,11 @@ class DatabaseHelper(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "saveup.db"
-        private const val DATABASE_VERSION = 4 // <-- VERSIÓN INCREMENTADA
+        private const val DATABASE_VERSION = 5 // <-- VERSIÓN INCREMENTADA
 
         // Tablas
         const val TABLE_FORM = "usuarios"
         const val TABLE_AUTH = "auth_usuarios"
-        const val TABLE_SALDO = "saldos"
 
         // Columnas
         const val COL_ID = "id"
@@ -32,40 +29,24 @@ class DatabaseHelper(context: Context) :
         const val COL_AUTH_APELLIDO = "apellido"
         const val COL_AUTH_EMAIL = "email"
         const val COL_AUTH_CONTRASENA = "contrasena"
-        const val COL_SALDO_ID = "id_saldo"
-        const val COL_SALDO_MONTO = "monto"
-        const val COL_SALDO_FECHA = "fecha_registro"
-        const val COL_SALDO_RUT_USUARIO = "usuario_rut"
-        const val COL_SALDO_TIPO_EVENTO = "tipo_evento"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
         val createTableForm = "CREATE TABLE $TABLE_FORM ($COL_ID INTEGER PRIMARY KEY AUTOINCREMENT, $COL_NOMBRE_FORM TEXT NOT NULL, $COL_RUT_FORM TEXT NOT NULL, $COL_INGRESO INTEGER NOT NULL, $COL_DESCRIPCION TEXT)"
         val createTableAuth = "CREATE TABLE $TABLE_AUTH ($COL_AUTH_RUT TEXT PRIMARY KEY, $COL_AUTH_NOMBRE TEXT NOT NULL, $COL_AUTH_APELLIDO TEXT NOT NULL, $COL_AUTH_EMAIL TEXT NOT NULL UNIQUE, $COL_AUTH_CONTRASENA TEXT NOT NULL)"
-        val createTableSaldo = """
-            CREATE TABLE $TABLE_SALDO (
-                $COL_SALDO_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                $COL_SALDO_MONTO REAL NOT NULL,
-                $COL_SALDO_FECHA INTEGER NOT NULL, 
-                $COL_SALDO_TIPO_EVENTO TEXT NOT NULL,
-                $COL_SALDO_RUT_USUARIO TEXT NOT NULL,
-                FOREIGN KEY($COL_SALDO_RUT_USUARIO) REFERENCES $TABLE_AUTH($COL_AUTH_RUT)
-            )
-        """.trimIndent()
 
         db.execSQL(createTableForm)
         db.execSQL(createTableAuth)
-        db.execSQL(createTableSaldo)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $TABLE_FORM")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_AUTH")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_SALDO")
+        db.execSQL("DROP TABLE IF EXISTS saldos") // <-- Tabla obsoleta eliminada
         onCreate(db)
     }
 
-    // --- Métodos TBL_AUTH ---
+    // --- Métodos TBL_AUTH (Se mantienen por si hay lógica de login local remanente) ---
     fun insertarAuthUsuario(usuario: Usuario): Boolean {
         val db = writableDatabase
         val values = ContentValues().apply {
@@ -76,7 +57,6 @@ class DatabaseHelper(context: Context) :
             put(COL_AUTH_CONTRASENA, usuario.contrasena)
         }
         val result = db.insert(TABLE_AUTH, null, values)
-        // NO CERRAMOS LA BD: db.close()
         return result != -1L
     }
 
@@ -95,11 +75,9 @@ class DatabaseHelper(context: Context) :
             )
         }
         cursor.close()
-        // NO CERRAMOS LA BD: db.close()
         return usuario
     }
 
-    // --- NUEVAS FUNCIONES DE VALIDACIÓN ---
     fun usuarioExistePorRut(rut: String): Boolean {
         val db = readableDatabase
         val cursor = db.query(TABLE_AUTH, arrayOf(COL_AUTH_RUT), "$COL_AUTH_RUT = ?", arrayOf(rut), null, null, null)
@@ -116,7 +94,7 @@ class DatabaseHelper(context: Context) :
         return exists
     }
 
-    // --- Otros métodos (sin cambios en db.close()) ---
+    // --- Otros métodos (Legacy) ---
     fun insertarUsuario(nombre: String, rut: String, ingreso: Int, descripcion: String): Boolean {
         val db = writableDatabase
         val values = ContentValues().apply {
@@ -145,47 +123,6 @@ class DatabaseHelper(context: Context) :
         }
         cursor.close()
         return lista
-    }
-
-    fun insertarSaldo(saldo: Saldo): Boolean {
-        val db = writableDatabase
-        val values = ContentValues().apply {
-            put(COL_SALDO_MONTO, saldo.monto)
-            put(COL_SALDO_FECHA, saldo.fechaRegistro.time)
-            put(COL_SALDO_TIPO_EVENTO, saldo.tipoEvento.name)
-            put(COL_SALDO_RUT_USUARIO, saldo.usuarioRut)
-        }
-        return db.insert(TABLE_SALDO, null, values) != -1L
-    }
-
-    fun obtenerSaldoActual(usuarioRut: String): Float {
-        val db = readableDatabase
-        val cursor = db.rawQuery("SELECT SUM($COL_SALDO_MONTO) FROM $TABLE_SALDO WHERE $COL_SALDO_RUT_USUARIO = ?", arrayOf(usuarioRut))
-        var saldoActual = 0f
-        if (cursor.moveToFirst()) {
-            saldoActual = cursor.getFloat(0)
-        }
-        cursor.close()
-        return saldoActual
-    }
-
-    fun obtenerSaldosPorUsuario(usuarioRut: String): List<Saldo> {
-        val listaSaldos = mutableListOf<Saldo>()
-        val db = readableDatabase
-        val cursor = db.query(TABLE_SALDO, null, "$COL_SALDO_RUT_USUARIO = ?", arrayOf(usuarioRut), null, null, "$COL_SALDO_FECHA DESC")
-        if (cursor.moveToFirst()) {
-            do {
-                listaSaldos.add(Saldo(
-                    idSaldo = cursor.getInt(cursor.getColumnIndexOrThrow(COL_SALDO_ID)),
-                    monto = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_SALDO_MONTO)),
-                    fechaRegistro = Date(cursor.getLong(cursor.getColumnIndexOrThrow(COL_SALDO_FECHA))),
-                    tipoEvento = EventoSaldo.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(COL_SALDO_TIPO_EVENTO))),
-                    usuarioRut = cursor.getString(cursor.getColumnIndexOrThrow(COL_SALDO_RUT_USUARIO))
-                ))
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        return listaSaldos
     }
 }
 

@@ -1,69 +1,75 @@
 **Título:** Documentación API v2.0 - Backend Refactorizado para SaveUp
 
-**Versión:** 2.0
+**Versión:** 2.1
 **Estado:** `[OPERACIONAL]`
+**Última Actualización:** Implementado el endpoint de autenticación (`/login`).
 
 **Descripción:**
-Este documento describe la nueva arquitectura del backend, que ha sido reconstruida desde cero para garantizar seguridad, rendimiento y estabilidad. La API REST ahora sigue las mejores prácticas de Spring Boot. Toda la comunicación desde el frontend (Android) debe adaptarse a esta nueva estructura.
+Este documento describe la arquitectura del backend y los endpoints REST para la aplicación SaveUp.
+Toda la comunicación desde el frontend (Android) debe adaptarse a esta estructura.
 
 ---
 
-## Arquitectura y Flujo de Datos del Nuevo Backend
-
-El nuevo backend separa claramente las responsabilidades en diferentes capas y componentes para evitar los errores del pasado.
-
-1.  **DTO (Data Transfer Object):** Clases como `UsuarioRegistroDTO` son la única puerta de entrada de datos. Son responsables de recibir los JSON del frontend y **validar** que los datos (formato de RUT, longitud de contraseña, etc.) sean correctos **antes** de que cualquier lógica de negocio se ejecute.
-
-2.  **Controller (`@RestController`):** Es el punto de entrada de las peticiones HTTP.
-    *   Recibe el DTO del frontend.
-    *   Usa la anotación `@Valid` para activar las validaciones del DTO. Si un dato es inválido, el controlador rechaza la petición automáticamente con un error `HTTP 400 Bad Request`.
-    *   Llama al `Service` correspondiente para ejecutar la lógica de negocio.
-    *   Devuelve respuestas HTTP claras (`201 CREATED`, `409 CONFLICT`, etc.).
-
-3.  **Service (`@Service`):** Es el cerebro de la aplicación.
-    *   Contiene toda la lógica de negocio (registrar un usuario, iniciar sesión, etc.).
-    *   Se comunica con el `Repository` para acceder a la base de datos.
-    *   Realiza operaciones críticas de seguridad, como **codificar la contraseña** usando `PasswordEncoder`.
-
-4.  **Repository (`@Repository`):** Es la capa de acceso a datos.
-    *   Define métodos eficientes para interactuar con la base de datos (ej: `findByEmail`, `existsByRut`).
-    *   Evita cargar listas masivas de datos en memoria, solucionando el problema de rendimiento anterior.
-
-5.  **Entity (`@Entity`):** Es un reflejo simple y limpio de la tabla en la base de datos. **No contiene lógica de negocio ni validaciones complejas**. Su única responsabilidad es mapear los datos.
-
----
-
-## Cómo Conectar el Frontend (Android) a la Nueva API
+## **Fase 1: Gestión de Usuarios (Completada)**
 
 ### **Endpoint de Registro de Usuario**
-
-Este es el primer endpoint que debe ser consumido. Permite crear un nuevo usuario en el sistema.
-
-*   **URL:** `POST /api/usuarios/register`
+*   **URL:** `/api/usuarios/register`
 *   **Método:** `POST`
 *   **Descripción:** Registra un nuevo usuario.
-*   **Cuerpo de la Petición (Body - JSON):** El frontend debe enviar un objeto JSON que coincida con la estructura de `UsuarioRegistroDTO`.
+*   **Cuerpo de la Petición (JSON):** `UsuarioRegistroDTO`
+*   **Respuestas Posibles:**
+    *   `201 CREATED`: Usuario creado exitosamente.
+    *   `400 BAD REQUEST`: Datos de entrada inválidos (RUT, email, etc.).
+    *   `409 CONFLICT`: El RUT o el email ya existen.
 
-2. Crear el DTO en AndroidCrea una data class en Kotlin que coincida con el JSON que el backend espera.
+### **Endpoint de Login de Usuario**
+*   **URL:** `/api/usuarios/login`
+*   **Método:** `POST`
+*   **Descripción:** Autentica a un usuario con su email y contraseña.
+*   **Cuerpo de la Petición (JSON):** `UsuarioLoginDTO`
+*   **Respuestas Posibles:**
+    *   `200 OK`: Autenticación correcta. Devuelve el objeto `Usuario` (sin contraseña).
+    *   `401 UNAUTHORIZED`: Credenciales inválidas.
 
-### **Posibles Respuestas del Servidor**
+---
 
-El frontend debe estar preparado para manejar los siguientes códigos de respuesta HTTP:
+## **Fase 2: Plan de Acción - Migración de Movimientos (Pendiente)**
 
-*   **`201 CREATED`**:
-    *   **Significado:** ¡Éxito! El usuario fue creado correctamente.
-    *   **Acción del Frontend:** Puede navegar a la pantalla de inicio de sesión o a un mensaje de bienvenida.
-    *   **Cuerpo de la Respuesta:**
+**Objetivo:** Migrar toda la lógica de ingresos y gastos, actualmente gestionada por `DatabaseHelper.kt`
+en la app, para que sea manejada por el backend.
+Esto centralizará los datos y permitirá la persistencia entre dispositivos.
 
-3. Implementar la Lógica en el ViewModelLlama al nuevo endpoint desde tu UsuarioViewModel y maneja las diferentes respuestas.
+### **Tareas Pendientes (Backend)**
 
-*   **`400 BAD REQUEST`**:
-    *   **Significado:** Los datos enviados en el JSON no pasaron la validación. Por ejemplo, la contraseña es muy corta, el formato del RUT es incorrecto o falta un campo obligatorio.
-    *   **Acción del Frontend:** Mostrar un mensaje de error al usuario indicando qué campo es incorrecto. El cuerpo de la respuesta del backend detallará los errores.
+1.  **Crear Entidad `Movimiento`:**
+    *   **Propósito:** Reflejará la tabla de movimientos en la base de datos.
+    *   **Campos sugeridos:** `id` (PK), `descripcion` (String), `monto` (double), `tipo` (Enum: `INGRESO`, `GASTO`), `fecha` (Date), y una relación `ManyToOne` con la entidad `Usuario`.
 
-*   **`409 CONFLICT`**:
-    *   **Significado:** El `rut` o el `email` enviados ya existen en la base de datos.
-    *   **Acción del Frontend:** Mostrar un mensaje claro al usuario, como "El RUT o correo electrónico ya se encuentra registrado".
-    *   **Cuerpo de la Respuesta:**
+2.  **Crear DTOs para Movimientos:**
+    *   `MovimientoRegistroDTO`: Para recibir la información de un nuevo movimiento desde la app.
+    *   `MovimientoResponseDTO`: Para enviar la información de los movimientos a la app.
 
-Con esta guía, el equipo de frontend tiene toda la información necesaria para integrarse exitosamente con el nuevo y robusto backend.
+3.  **Crear `MovimientoRepository`:** Interfaz de Spring Data JPA para interactuar con la tabla de movimientos.
+
+4.  **Crear `MovimientoService`:**
+    *   **Lógica de Negocio:** Implementar métodos para registrar un nuevo movimiento, obtener todos los movimientos de un usuario y calcular el saldo actual.
+
+5.  **Crear `MovimientoController`:** Exponer los nuevos endpoints REST.
+    *   `POST /api/movimientos`: Para registrar un nuevo ingreso o gasto. Recibirá un `MovimientoRegistroDTO`.
+    *   `GET /api/movimientos/{usuarioId}`: Para obtener el historial de todos los movimientos de un usuario específico.
+    *   `GET /api/saldos/{usuarioId}`: Para obtener una vista consolidada del saldo actual del usuario.
+
+### **Tareas Pendientes (Android)**
+
+1.  **Actualizar `ApiService.kt`:** Añadir las nuevas funciones para los endpoints de `/movimientos` y `/saldos`.
+
+2.  **Crear los DTOs de Movimiento:** Crear las `data class` correspondientes en el paquete `model.dto`.
+
+3.  **Refactorizar `DashboardViewModel` (o similar):**
+    *   Reemplazar todas las llamadas a `DatabaseHelper` (ej: `insertarSaldo`, `obtenerSaldosPorUsuario`) por llamadas a los nuevos endpoints de la API a través de `RetrofitClient`.
+
+4.  **Refactorizar `DashboardScreen.kt`:**
+    *   Asegurar que la UI consuma los datos del `ViewModel` que ahora provienen del backend.
+    *   El formulario para añadir ingresos/gastos deberá invocar la nueva función del `ViewModel` que llama a la API.
+
+5.  **Limpieza de Código:** Una vez que toda la lógica esté migrada y probada, eliminar los métodos obsoletos de `DatabaseHelper.kt` para completar la migración.
