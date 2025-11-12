@@ -1,12 +1,11 @@
-**Título:** Documentación API v2.0 - Backend Refactorizado para SaveUp
+**Título:** Documentación API v3.0 - Arquitectura Centralizada
 
-**Versión:** 2.1
+**Versión:** 3.0
 **Estado:** `[OPERACIONAL]`
-**Última Actualización:** Implementado el endpoint de autenticación (`/login`).
+**Última Actualización:** Migración completa de la lógica de Movimientos al backend.
 
 **Descripción:**
-Este documento describe la arquitectura del backend y los endpoints REST para la aplicación SaveUp.
-Toda la comunicación desde el frontend (Android) debe adaptarse a esta estructura.
+Este documento describe la arquitectura del backend y los endpoints REST para la aplicación SaveUp. Toda la lógica de negocio principal (usuarios y movimientos) está ahora centralizada en el servidor.
 
 ---
 
@@ -33,43 +32,37 @@ Toda la comunicación desde el frontend (Android) debe adaptarse a esta estructu
 
 ---
 
-## **Fase 2: Plan de Acción - Migración de Movimientos (Pendiente)**
+## **Fase 2: Gestión de Movimientos (Completada)**
 
-**Objetivo:** Migrar toda la lógica de ingresos y gastos, actualmente gestionada por `DatabaseHelper.kt`
-en la app, para que sea manejada por el backend.
-Esto centralizará los datos y permitirá la persistencia entre dispositivos.
+**Objetivo:** Toda la lógica de ingresos y gastos, que antes se gestionaba localmente en la app (`DatabaseHelper.kt`), ha sido migrada con éxito al backend. Esto centraliza los datos y permite la persistencia y sincronización entre dispositivos. La base de datos local ha sido depurada de este código.
 
-### **Tareas Pendientes (Backend)**
+### **Endpoint para Registrar un Movimiento**
+*   **URL:** `/api/movimientos`
+*   **Método:** `POST`
+*   **Descripción:** Registra un nuevo ingreso o gasto para un usuario.
+*   **Cuerpo de la Petición (JSON):** `MovimientoRegistroDTO`
+*   **Respuestas Posibles:**
+    *   `201 CREATED`: Movimiento registrado. Devuelve el `MovimientoResponseDTO` creado.
+    *   `404 NOT FOUND`: El usuario especificado en el DTO no existe.
 
-1.  **Crear Entidad `Movimiento`:**
-    *   **Propósito:** Reflejará la tabla de movimientos en la base de datos.
-    *   **Campos sugeridos:** `id` (PK), `descripcion` (String), `monto` (double), `tipo` (Enum: `INGRESO`, `GASTO`), `fecha` (Date), y una relación `ManyToOne` con la entidad `Usuario`.
+### **Endpoint para Obtener Historial de Movimientos**
+*   **URL:** `/api/movimientos/usuario/{rut}`
+*   **Método:** `GET`
+*   **Descripción:** Obtiene la lista completa de movimientos de un usuario, ordenados del más reciente al más antiguo.
+*   **Respuestas Posibles:**
+    *   `200 OK`: Devuelve una lista de `MovimientoResponseDTO`.
+    *   `404 NOT FOUND`: El usuario con el RUT especificado no existe.
 
-2.  **Crear DTOs para Movimientos:**
-    *   `MovimientoRegistroDTO`: Para recibir la información de un nuevo movimiento desde la app.
-    *   `MovimientoResponseDTO`: Para enviar la información de los movimientos a la app.
+### **Endpoint para Obtener Saldo Actual**
+*   **URL:** `/api/saldos/{rut}`
+*   **Método:** `GET`
+*   **Descripción:** Calcula y devuelve el saldo actual total de un usuario.
+*   **Respuestas Posibles:**
+    *   `200 OK`: Devuelve un objeto JSON con el saldo. `{"saldo": 1234.56}`.
+    *   `404 NOT FOUND`: El usuario con el RUT especificado no existe.
 
-3.  **Crear `MovimientoRepository`:** Interfaz de Spring Data JPA para interactuar con la tabla de movimientos.
+---
 
-4.  **Crear `MovimientoService`:**
-    *   **Lógica de Negocio:** Implementar métodos para registrar un nuevo movimiento, obtener todos los movimientos de un usuario y calcular el saldo actual.
+## **Próximos Pasos (Fase 3 - Pendiente)**
 
-5.  **Crear `MovimientoController`:** Exponer los nuevos endpoints REST.
-    *   `POST /api/movimientos`: Para registrar un nuevo ingreso o gasto. Recibirá un `MovimientoRegistroDTO`.
-    *   `GET /api/movimientos/{usuarioId}`: Para obtener el historial de todos los movimientos de un usuario específico.
-    *   `GET /api/saldos/{usuarioId}`: Para obtener una vista consolidada del saldo actual del usuario.
-
-### **Tareas Pendientes (Android)**
-
-1.  **Actualizar `ApiService.kt`:** Añadir las nuevas funciones para los endpoints de `/movimientos` y `/saldos`.
-
-2.  **Crear los DTOs de Movimiento:** Crear las `data class` correspondientes en el paquete `model.dto`.
-
-3.  **Refactorizar `DashboardViewModel` (o similar):**
-    *   Reemplazar todas las llamadas a `DatabaseHelper` (ej: `insertarSaldo`, `obtenerSaldosPorUsuario`) por llamadas a los nuevos endpoints de la API a través de `RetrofitClient`.
-
-4.  **Refactorizar `DashboardScreen.kt`:**
-    *   Asegurar que la UI consuma los datos del `ViewModel` que ahora provienen del backend.
-    *   El formulario para añadir ingresos/gastos deberá invocar la nueva función del `ViewModel` que llama a la API.
-
-5.  **Limpieza de Código:** Una vez que toda la lógica esté migrada y probada, eliminar los métodos obsoletos de `DatabaseHelper.kt` para completar la migración.
+El siguiente gran paso es implementar las funcionalidades de **Deudas y Metas de Ahorro**, siguiendo el `metodo_arquitectonico.txt` que ya hemos definido.
