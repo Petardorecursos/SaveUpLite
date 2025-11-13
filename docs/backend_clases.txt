@@ -43,6 +43,7 @@ public class Usuario {
     }
 }
 
+
 repositorio:
 package com.example.saveup.repository;
 
@@ -60,7 +61,23 @@ public interface UsuarioRepository extends JpaRepository<Usuario, String> {
     boolean existsByEmail(String email);
 }
 
+
 dto:
+package com.example.saveup.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;@Data
+public class UsuarioLoginDTO {
+
+    @NotBlank(message = "El email es obligatorio")
+    @Email(message = "El formato del correo no es válido")
+    private String email;
+
+    @NotBlank(message = "La contraseña es obligatoria")
+    private String contrasena;
+}
+
 package com.example.saveup.dto;
 
 import jakarta.validation.constraints.Email;
@@ -94,6 +111,7 @@ public class UsuarioRegistroDTO {
     private String contrasena;
 }
 
+
 controller:
 package com.example.saveup.controller;
 
@@ -107,6 +125,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.example.saveup.dto.UsuarioLoginDTO;
+import com.example.saveup.model.Usuario;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 
@@ -131,7 +153,25 @@ public class UsuarioController {
             return new ResponseEntity<>(Map.of("error", "Ocurrió un error inesperado en el servidor."), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> loginUsuario(@Valid @RequestBody UsuarioLoginDTO loginDTO) {
+        try {
+            Usuario usuario = usuarioService.autenticarUsuario(loginDTO);
+
+            // ¡IMPORTANTE! NUNCA DEVUELVAS LA CONTRASEÑA, NI SIQUIERA EL HASH.
+            // Al poner el campo en null, el JSON de respuesta no lo incluirá.
+            usuario.setContrasena(null);
+
+            return ResponseEntity.ok(usuario);
+
+        } catch (BadCredentialsException e) {
+            // Si las credenciales son incorrectas, devolvemos un error 401 Unauthorized.
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.UNAUTHORIZED);
+        }
+    }
 }
+
 
 service:
 package com.example.saveup.service;
@@ -142,6 +182,8 @@ import com.example.saveup.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.example.saveup.dto.UsuarioLoginDTO;
+import org.springframework.security.authentication.BadCredentialsException;
 
 @Service
 public class UsuarioService {
@@ -180,8 +222,377 @@ public class UsuarioService {
 
         return usuarioRepository.save(nuevoUsuario);
     }
+
+    /**
+     * Autentica a un usuario comparando las credenciales con la base de datos.
+     *
+     * @param loginDTO Objeto con el email y la contraseña.
+     * @return El objeto Usuario si las credenciales son correctas.
+     * @throws BadCredentialsException si el usuario no existe o la contraseña es incorrecta.
+     */
+    public Usuario autenticarUsuario(UsuarioLoginDTO loginDTO) {
+        // Busca al usuario por email. Si no lo encuentra, lanza excepción.
+        Usuario usuario = usuarioRepository.findByEmail(loginDTO.getEmail())
+                .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas."));
+
+        // Compara la contraseña del DTO con la contraseña hasheada de la BD.
+        if (passwordEncoder.matches(loginDTO.getContrasena(), usuario.getContrasena())) {
+            return usuario; // Si coinciden, devuelve el usuario.
+        } else {
+            // Si no coinciden, lanza la misma excepción para no dar pistas a atacantes.
+            throw new BadCredentialsException("Credenciales inválidas.");
+        }
+    }
+
 }
 
+
+Clase Movimientos y sus clases respectivas:
+
+model:
+package com.example.saveup.model;
+
+import com.example.saveup.model.enums.TipoMovimiento;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import java.util.Date;
+
+@Entity
+@Table(name = "MOVIMIENTO")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Movimiento {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // Ideal para IDs numéricos autoincrementales
+    @Column(name = "ID_MOVIMIENTO")
+    private Long id;
+
+    @Column(name = "MONTO", nullable = false)
+    private double monto; // Positivo para ingresos, negativo para gastos
+
+    @Column(name = "DESCRIPCION", nullable = false, length = 100)
+    private String descripcion;
+
+    @Column(name = "FECHA", nullable = false, updatable = false)
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date fecha;
+
+    @Enumerated(EnumType.STRING) // Le dice a JPA que guarde el nombre del enum ("GASTO_GENERAL")
+    @Column(name = "TIPO_MOVIMIENTO", nullable = false)
+    private TipoMovimiento tipoMovimiento;
+
+    // --- Relación Clave ---
+    // Muchos movimientos pueden pertenecer a Un usuario.
+    @ManyToOne(fetch = FetchType.LAZY) // LAZY para no cargar el usuario a menos que se necesite
+    @JoinColumn(name = "USUARIO_ID", nullable = false)
+    private Usuario usuario;
+
+    /*
+    // --- Relaciones Futuras (Descomentar cuando creemos Deuda y MetaAhorro) ---
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "DEUDA_ID") // Será FK a la tabla DEUDA
+    private Deuda deuda;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "META_ID") // Será FK a la tabla META_AHORRO
+    private MetaAhorro metaAhorro;
+    */
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.fecha == null) {
+            this.fecha = new Date();
+        }
+    }
+}
+
+enum:
+package com.example.saveup.model.enums;
+
+/**
+ * Enum para categorizar los diferentes tipos de transacciones monetarias.
+ * Esto permite un filtrado y una lógica de negocio más claros.
+ */
+public enum TipoMovimiento {
+    INGRESO_GENERAL,
+    GASTO_GENERAL,
+    PAGO_DEUDA,
+    ABONO_META,
+    RETIRO_META
+}
+
+
+repositorio:
+package com.example.saveup.repository;
+
+import com.example.saveup.model.Movimiento;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface MovimientoRepository extends JpaRepository<Movimiento, Long> {
+
+    /**
+     * Busca todos los movimientos asociados a un RUT de usuario específico.
+     * Spring Data JPA infiere la consulta a partir del nombre del método.
+     * Ordena los resultados por fecha en orden descendente para mostrar los más recientes primero.
+     *
+     * @param rut El RUT del usuario.
+     * @return Una lista de movimientos.
+     */
+    List<Movimiento> findByUsuarioRutOrderByFechaDesc(String rut);
+
+    /**
+     * Calcula la suma de todos los montos de los movimientos para un usuario específico.
+     * Esta es la consulta clave para obtener el saldo actual del usuario.
+     * Usamos una consulta JPQL personalizada con la anotación @Query.
+     *
+     * @param rut El RUT del usuario.
+     * @return Un Double que representa el saldo total. Puede ser null si no hay movimientos.
+     */
+    @Query("SELECT SUM(m.monto) FROM Movimiento m WHERE m.usuario.rut = :rut")
+    Double findSaldoByUsuarioRut(@Param("rut") String rut);
+
+}
+
+dtos:
+package com.example.saveup.dto;
+
+import com.example.saveup.model.enums.TipoMovimiento;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+public class MovimientoRegistroDTO {
+
+    @NotNull(message = "El monto no puede ser nulo")
+    private Double monto;
+
+    @NotBlank(message = "La descripción es obligatoria")
+    private String descripcion;
+
+    @NotNull(message = "El tipo de movimiento es obligatorio")
+    private TipoMovimiento tipoMovimiento;
+
+    @NotBlank(message = "El RUT del usuario es obligatorio")
+    private String usuarioRut;
+
+    // Opcional: Se usarán cuando implementemos deudas y metas
+    private Long deudaId;
+    private Long metaId;
+}
+
+
+package com.example.saveup.dto;
+
+import com.example.saveup.model.enums.TipoMovimiento;
+import lombok.Data;
+import java.util.Date;@Data
+public class MovimientoResponseDTO {
+    private Long id;
+    private double monto;
+    private String descripcion;
+    private Date fecha;
+    private TipoMovimiento tipoMovimiento;
+}
+
+
+controller:
+package com.example.saveup.controller;
+
+import com.example.saveup.dto.MovimientoRegistroDTO;
+import com.example.saveup.dto.MovimientoResponseDTO;
+import com.example.saveup.service.MovimientoService;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/movimientos")
+public class MovimientoController {
+
+    @Autowired
+    private MovimientoService movimientoService;
+
+    /**
+     * Endpoint para registrar un nuevo movimiento (ingreso o gasto).
+     */
+    @PostMapping
+    public ResponseEntity<?> registrarMovimiento(@Valid @RequestBody MovimientoRegistroDTO dto) {
+        try {
+            MovimientoResponseDTO nuevoMovimiento = movimientoService.registrarMovimiento(dto);
+            return new ResponseEntity<>(nuevoMovimiento, HttpStatus.CREATED);
+        } catch (EntityNotFoundException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        } catch (Exception e) {
+            return new ResponseEntity<>(Map.of("error", "Ocurrió un error inesperado."), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Endpoint para obtener todos los movimientos de un usuario por su RUT.
+     */
+    @GetMapping("/usuario/{rut}")
+    public ResponseEntity<?> obtenerMovimientosPorUsuario(@PathVariable String rut) {
+        try {
+            List<MovimientoResponseDTO> movimientos = movimientoService.obtenerMovimientosPorUsuario(rut);
+            return ResponseEntity.ok(movimientos);
+        } catch (EntityNotFoundException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        }
+    }
+}
+
+saldo Controller:
+package com.example.saveup.controller;
+
+import com.example.saveup.service.MovimientoService;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/saldos")
+public class SaldoController {
+
+    @Autowired
+    private MovimientoService movimientoService; // Reutilizamos el mismo servicio
+
+    /**
+     * Endpoint para obtener el saldo actual y total de un usuario por su RUT.
+     */
+    @GetMapping("/{rut}")
+    public ResponseEntity<?> obtenerSaldoActual(@PathVariable String rut) {
+        try {
+            Double saldo = movimientoService.obtenerSaldoActual(rut);
+            // Devolvemos un objeto JSON para mantener la consistencia en la API.
+            return ResponseEntity.ok(Map.of("saldo", saldo));
+        } catch (EntityNotFoundException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        }
+    }
+}
+
+service:
+package com.example.saveup.service;
+
+import com.example.saveup.dto.MovimientoRegistroDTO;
+import com.example.saveup.dto.MovimientoResponseDTO;
+import com.example.saveup.model.Movimiento;
+import com.example.saveup.model.Usuario;
+import com.example.saveup.repository.MovimientoRepository;
+import com.example.saveup.repository.UsuarioRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class MovimientoService {
+
+    @Autowired
+    private MovimientoRepository movimientoRepository;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    /**
+     * Registra un nuevo movimiento para un usuario.
+     *
+     * @param dto Los datos del movimiento a registrar.
+     * @return Un DTO con la información del movimiento guardado.
+     */
+    @Transactional
+    public MovimientoResponseDTO registrarMovimiento(MovimientoRegistroDTO dto) {
+        // 1. Validar que el usuario exista.
+        Usuario usuario = usuarioRepository.findById(dto.getUsuarioRut())
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado con RUT: " + dto.getUsuarioRut()));
+
+        // 2. Crear la entidad Movimiento a partir del DTO.
+        Movimiento movimiento = new Movimiento();
+        movimiento.setUsuario(usuario);
+        movimiento.setMonto(dto.getMonto());
+        movimiento.setDescripcion(dto.getDescripcion());
+        movimiento.setTipoMovimiento(dto.getTipoMovimiento());
+        // La fecha se establece automáticamente gracias a la anotación @PrePersist en la entidad.
+
+        // Lógica futura para deudas y metas (se añadiría aquí).
+
+        // 3. Guardar la entidad en la base de datos.
+        Movimiento movimientoGuardado = movimientoRepository.save(movimiento);
+
+        // 4. Convertir la entidad guardada a un DTO de respuesta y devolverla.
+        return convertirAEntidadResponseDTO(movimientoGuardado);
+    }
+
+    /**
+     * Obtiene el historial de movimientos de un usuario.
+     *
+     * @param rut El RUT del usuario.
+     * @return Una lista de DTOs de movimientos, ordenados por fecha descendente.
+     */
+    @Transactional(readOnly = true) // readOnly = true optimiza las consultas de solo lectura.
+    public List<MovimientoResponseDTO> obtenerMovimientosPorUsuario(String rut) {
+        if (!usuarioRepository.existsById(rut)) {
+            throw new EntityNotFoundException("Usuario no encontrado con RUT: " + rut);
+        }
+        List<Movimiento> movimientos = movimientoRepository.findByUsuarioRutOrderByFechaDesc(rut);
+        // Convierte la lista de entidades a una lista de DTOs.
+        return movimientos.stream()
+                .map(this::convertirAEntidadResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Calcula y devuelve el saldo actual de un usuario.
+     *
+     * @param rut El RUT del usuario.
+     * @return El saldo total (la suma de todos los montos).
+     */
+    @Transactional(readOnly = true)
+    public Double obtenerSaldoActual(String rut) {
+        if (!usuarioRepository.existsById(rut)) {
+            throw new EntityNotFoundException("Usuario no encontrado con RUT: " + rut);
+        }
+        Double saldo = movimientoRepository.findSaldoByUsuarioRut(rut);
+        // Si un usuario no tiene movimientos, la suma devuelve null. Lo convertimos a 0.0.
+        return saldo == null ? 0.0 : saldo;
+    }
+
+    // --- Método de utilidad para convertir Entidad -> DTO ---
+    private MovimientoResponseDTO convertirAEntidadResponseDTO(Movimiento movimiento) {
+        MovimientoResponseDTO dto = new MovimientoResponseDTO();
+        dto.setId(movimiento.getId());
+        dto.setMonto(movimiento.getMonto());
+        dto.setDescripcion(movimiento.getDescripcion());
+        dto.setFecha(movimiento.getFecha());
+        dto.setTipoMovimiento(movimiento.getTipoMovimiento());
+        return dto;
+    }
+}
 
 Clases adicionales de configuración:
 
@@ -495,3 +906,33 @@ pom.xml:
         </plugins>
     </build>
 </project>
+
+---
+# Apéndice: Estado Actual de la Seguridad de los Endpoints
+---
+
+**Fecha de Análisis:** 2024-05-22
+
+**Estado Actual:** **ACCESO PÚBLICO**
+
+**Análisis:**
+Basado en la configuración actual de la clase `SecurityConfig.java`, todos los endpoints de la API, con la excepción del registro (`/api/usuarios/register`) que está explícitamente permitido, están abiertos al público. Esto se debe a la regla `.anyRequest().permitAll()`.
+
+**Justificación:**
+Esta configuración es **intencional y temporal**. Se ha establecido de esta manera para facilitar las fases de desarrollo, pruebas y el despliegue inicial en la nube (Render). Permite probar la funcionalidad de cada endpoint directamente desde herramientas como Postman o desde la aplicación cliente sin tener que manejar la complejidad de la autenticación por tokens.
+
+**Próximos Pasos (Seguridad de Producción):**
+El siguiente paso crítico, una vez que la funcionalidad básica esté validada en el entorno de producción, es implementar una estrategia de seguridad robusta basada en **JSON Web Tokens (JWT)**.
+
+El plan de acción es el siguiente:
+1.  **Generación de Token en el Login:** Modificar el `UsuarioService` o el `UsuarioController` para que, tras una autenticación exitosa, genere un token JWT firmado con la clave secreta (`jwt.secret`).
+2.  **Crear un Filtro de Autorización (`JwtAuthorizationFilter`):** Crear una nueva clase de filtro que se ejecutará en cada petición. Este filtro:
+    *   Leerá el token JWT de la cabecera `Authorization`.
+    *   Utilizará la clave secreta (`jwt.secret`) para validar la firma y la expiración del token.
+    *   Si el token es válido, establecerá el contexto de seguridad de Spring, permitiendo el acceso al endpoint solicitado.
+3.  **Actualizar `SecurityConfig`:** Se modificará la configuración de seguridad para que:
+    *   Utilice el nuevo `JwtAuthorizationFilter`.
+    *   Restrinja el acceso a los endpoints (ej: `/api/movimientos/**`, `/api/saldos/**`), requiriendo que todas las peticiones estén autenticadas (`.anyRequest().authenticated()`).
+
+**Nota sobre `jwt.secret`:**
+La propiedad `jwt.secret` está definida en los archivos `.properties` en preparación para la implementación de JWT. El aviso del IDE sobre que es una "propiedad desconocida" es normal y esperado en esta fase, ya que todavía no existe ninguna clase Java (`JwtUtil`, `JwtAuthorizationFilter`, etc.) que la esté inyectando y utilizando activamente. Este aviso desaparecerá una vez se implemente la capa de seguridad JWT.
