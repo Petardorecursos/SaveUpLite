@@ -674,6 +674,9 @@ public class SecurityConfig {
     }
 }
 
+// NOTA: Esta clase se elimina para el despliegue en Render,
+// ya que la configuración de la base de datos de producción
+// se gestionará automáticamente por Spring Boot a través de `application-prod.properties`.
 DataSourceConfig:
 package com.example.saveup.config;
 
@@ -780,6 +783,31 @@ app.cors.allow-credentials=true
 app.cors.max-age=3600
 
 
+application-prod.properties:
+# -------------------------------------------------------------------
+# ================ PERFIL DE PRODUCCIÓN (prod) ======================
+# -------------------------------------------------------------------
+
+# --- Configuración de la Base de Datos PostgreSQL (Render) ---
+# Le decimos a Spring que use el driver de PostgreSQL.
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# Le decimos a JPA que use el dialecto de PostgreSQL para generar SQL correcto.
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# 'validate' es la opción más segura para producción.
+# Comprueba que las tablas de la BD coincidan con las entidades, pero no hace cambios.
+# Para el PRIMER despliegue, podría ser necesario cambiarlo a 'update' temporalmente
+# para que Hibernate cree las tablas automáticamente.
+spring.jpa.hibernate.ddl-auto=validate
+
+# --- Configuración leída desde variables de entorno de Render ---
+spring.datasource.url=${SPRING_DATASOURCE_URL}
+spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
+spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
+jwt.secret=${JWT_SECRET}
+
+
 pom.xml:
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -788,9 +816,8 @@ pom.xml:
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <!-- Nota: Si 3.5.7 no existe, puedes usar una versión estable como 3.3.0 -->
         <version>3.3.0</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
     <groupId>com.example</groupId>
     <artifactId>saveup</artifactId>
@@ -800,79 +827,65 @@ pom.xml:
 
     <properties>
         <java.version>21</java.version>
-        <!-- Propiedad para centralizar la versión de todas las dependencias de Oracle -->
         <oracle.version>23.4.0.24.05</oracle.version>
     </properties>
 
     <dependencies>
         <!-- === DEPENDENCIAS ESENCIALES DE SPRING BOOT === -->
-
-        <!-- Para JPA, Repositorios y Hibernate -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-
-        <!-- Para crear APIs REST (Controladores, etc.) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-
-        <!-- Para seguridad (manejo de contraseñas, protección de endpoints) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
-
-        <!-- Para usar anotaciones de validación como @Valid, @NotBlank, etc. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-
-        <!-- Para reducir código boilerplate (getters, setters, etc.) -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-
-        <!-- Dependencia para HATEOAS, si la necesitas -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-hateoas</artifactId>
         </dependency>
 
-
-        <!-- === CONJUNTO COMPLETO Y DEFINITIVO DE DEPENDENCIAS DE ORACLE === -->
-
-        <!-- 1. Universal Connection Pool (UCP): El gestor del pool de conexiones. -->
+        <!-- === DEPENDENCIAS DE ORACLE (PARA DESARROLLO LOCAL) === -->
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ucp</artifactId>
             <version>${oracle.version}</version>
         </dependency>
-
-        <!-- 2. Driver JDBC Principal: El driver que UCP usa internamente. -->
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc11</artifactId>
             <version>${oracle.version}</version>
         </dependency>
-
-        <!-- 3. Dependencias de Seguridad: Contienen las clases para Wallet/SSL (el error que tuviste). -->
         <dependency>
             <groupId>com.oracle.database.security</groupId>
             <artifactId>oraclepki</artifactId>
             <version>${oracle.version}</version>
         </dependency>
-
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc11-production</artifactId>
             <version>${oracle.version}</version>
             <type>pom</type>
+        </dependency>
+
+        <!-- === DEPENDENCIA DE POSTGRESQL (PARA PRODUCCIÓN EN RENDER) === -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- === DEPENDENCIAS DE TEST === -->
@@ -890,7 +903,6 @@ pom.xml:
 
     <build>
         <plugins>
-            <!-- Plugin de Spring Boot (configuración estándar) -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

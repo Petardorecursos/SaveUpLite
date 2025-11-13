@@ -1,7 +1,7 @@
 # Arquitectura de Backend - Modelo Orientado a Transacciones
 
 **Versión:** 1.0
-**Autor:** Rui
+**Autor:** Gemini
 **Fecha:** 2024-05-22
 
 ## 1. Concepto Clave: Los Movimientos como Fuente Única de Verdad
@@ -99,20 +99,35 @@ Representa un objetivo de ahorro del usuario.
 
 ### Pros:
 
-1.  **Integridad de Datos (Máxima):** Es matemáticamente imposible que el saldo se corrompa o
-desincronice, ya que es un resultado directo del historial de transacciones.
-2.  **Auditabilidad Completa:** Se tiene un registro perfecto de cada operación que afectó el dinero
- del usuario, lo que facilita la depuración y la implementación de futuras funcionalidades de historial.
-3.  **Escalabilidad y Flexibilidad:** Este modelo es muy fácil de extender. Para añadir "Inversiones",
- simplemente se crea una entidad `Inversion` y se generan `Movimientos` que la referencien.
- El núcleo del sistema no se ve afectado.
-4.  **Simplicidad Lógica:** La lógica de negocio para crear transacciones es muy simple:
-siempre es una inserción (`INSERT`) en la tabla `Movimiento`.
+1.  **Integridad de Datos (Máxima):** Es matemáticamente imposible que el saldo se corrompa o desincronice, ya que es un resultado directo del historial de transacciones.
+2.  **Auditabilidad Completa:** Se tiene un registro perfecto de cada operación que afectó el dinero del usuario, lo que facilita la depuración y la implementación de futuras funcionalidades de historial.
+3.  **Escalabilidad y Flexibilidad:** Este modelo es muy fácil de extender. Para añadir "Inversiones", simplemente se crea una entidad `Inversion` y se generan `Movimientos` que la referencien. El núcleo del sistema no se ve afectado.
+4.  **Simplicidad Lógica:** La lógica de negocio para crear transacciones es muy simple: siempre es una inserción (`INSERT`) en la tabla `Movimiento`.
 
 ### Contras:
 
-1.  **Rendimiento en Cálculos Masivos:** Si un usuario acumula cientos de miles de movimientos,
-calcular el saldo total mediante una suma podría volverse marginalmente más lento que leer un valor pre-calculado.
-   - **Mitigación:** Este es un problema que solo aparece a una escala masiva. Si se llegara a
-    presentar, se puede solucionar fácilmente implementando un sistema de **caching** (ej: Redis)
-    que guarde temporalmente el saldo calculado, o creando vistas materializadas en la base de datos que se actualizan periódicamente.
+1.  **Rendimiento en Cálculos Masivos:** Si un usuario acumula cientos de miles de movimientos, calcular el saldo total mediante una suma podría volverse marginalmente más lento que leer un valor pre-calculado.
+    - **Mitigación:** Este es un problema que solo aparece a una escala masiva. Si se llegara a presentar, se puede solucionar fácilmente implementando un sistema de **caching** (ej: Redis) que guarde temporalmente el saldo calculado, o creando vistas materializadas en la base de datos que se actualizan periódicamente.
+
+---
+
+## 5. Estrategia de Despliegue y Entornos
+
+Para asegurar la flexibilidad durante el desarrollo y la robustez en producción, el backend adopta una estrategia de entornos diferenciados, gestionada a través de los perfiles de Spring Boot.
+
+### 5.1. Entorno de Desarrollo (`dev`)
+
+-   **Base de Datos:** Oracle Database.
+-   **Configuración:** Gestionada a través del archivo `application-dev.properties`.
+-   **Propósito:** Permite un desarrollo local rápido, con la capacidad de recrear y modificar el esquema de la base de datos fácilmente (`spring.jpa.hibernate.ddl-auto=create`). La conexión se realiza a una instancia local o de red privada de Oracle.
+
+### 5.2. Entorno de Producción (`prod`)
+
+-   **Plataforma de Despliegue:** **Render**.
+-   **Método de Despliegue:** **Docker**. Se utiliza un `Dockerfile` multi-etapa que primero compila la aplicación con Maven y luego la empaqueta en una imagen ligera de ejecución (JRE), optimizando el tamaño y la seguridad.
+-   **Base de Datos:** **PostgreSQL** (servicio gestionado por Render).
+-   **Configuración:** Gestionada por el archivo `application-prod.properties`.
+    -   La configuración sensible (URL de la base de datos, usuario, contraseña, `jwt.secret`) **no se escribe en el código**. Se inyecta a través de **Variables de Entorno** configuradas en el dashboard de Render.
+    -   La propiedad `spring.jpa.hibernate.ddl-auto` se establece en `update` para el primer despliegue (para crear las tablas) y luego se cambia a `validate` para mayor seguridad en despliegues posteriores.
+
+Este enfoque dual permite aprovechar la base de datos existente para el desarrollo local mientras se utiliza un servicio de base de datos moderno, gestionado y fácil de integrar en la nube para la producción, siguiendo las mejores prácticas de DevOps y seguridad.
