@@ -24,9 +24,20 @@ interface ApiService {
     suspend fun registrarMovimiento(@Body movimientoDTO: MovimientoRegistroDTO): Response<MovimientoResponseDTO>
 
     @GET("api/movimientos/usuario/{rut}")
-    suspend fun obtenerMovimientosPorUsuario(@Path("rut") rut: String): Response<List<MovimientoResponseDTO>>
+    suspend fun obtenerMovimientosPorUsuario(
+        @Path("rut") rut: String,
+        @Query("limit") limit: Int? = null
+    ): Response<List<MovimientoResponseDTO>>
 
     @GET("api/saldos/{rut}")
     suspend fun obtenerSaldoActual(@Path("rut") rut: String): Response<SaldoDTO>
+
+    // --- ¡NUEVO ENDPOINT! ---
+    @GET("api/movimientos/paginados/usuario/{rut}")
+    suspend fun obtenerMovimientosPaginados(
+        @Path("rut") rut: String,
+        @Query("page") page: Int,
+        @Query("size") size: Int
+    ): Response<PageResponseDTO<MovimientoResponseDTO>>
 
 }

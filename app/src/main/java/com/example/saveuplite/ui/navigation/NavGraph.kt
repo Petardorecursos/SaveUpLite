@@ -8,6 +8,7 @@ import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
 import com.example.saveuplite.ui.screens.auth.AuthScreen
 import com.example.saveuplite.ui.screens.dashboard.DashboardScreen
+import com.example.saveuplite.ui.screens.history.TransactionHistoryScreen
 import com.example.saveuplite.ui.screens.home.HomeScreen
 import com.example.saveuplite.ui.screens.form.FormScreen
 import com.example.saveuplite.ui.screens.list.ListScreen
@@ -18,8 +19,6 @@ import com.example.saveuplite.viewmodel.LocationViewModel
 
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 
-
-
 object Routes {
     const val HOME = "home"
     const val LEGACY_HOME = "legacyhome"
@@ -28,7 +27,7 @@ object Routes {
     const val LIST = "list"
     const val NOTIFICATION = "notification"
     const val AUTH = "auth"
-
+    const val TRANSACTION_HISTORY = "transaction_history" // <-- ¡NUEVA RUTA!
 }
 
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
@@ -44,14 +43,13 @@ fun AppNavHost(navController: NavHostController) {
         popEnterTransition = { fadeIn() + slideInHorizontally(initialOffsetX = { -300 }) },
         popExitTransition = { fadeOut() + slideOutHorizontally(targetOffsetX = { 300 }) }
     ) {
-        // --- Flujo de Autenticación y Dashboard ---
+        // --- Flujo Principal ---
         composable(Routes.AUTH) { AuthScreen(navController, usuarioViewModel) }
-        composable(Routes.HOME) { DashboardScreen(navController, usuarioViewModel) } // El nuevo Home
+        composable(Routes.HOME) { DashboardScreen(navController, usuarioViewModel) }
+        composable(Routes.TRANSACTION_HISTORY) { TransactionHistoryScreen(navController, usuarioViewModel) } // <-- ¡NUEVO COMPOSABLE!
 
-        // --- Rutas de funciones adicionales ---
-        // hola
-        composable(Routes.LEGACY_HOME) { HomeScreen(navController, usuarioViewModel) } // <-- ¡Ajuste realizado aquí!
-
+        // --- Rutas de funciones adicionales (Legacy) ---
+        composable(Routes.LEGACY_HOME) { HomeScreen(navController, usuarioViewModel) }
         composable(Routes.FORM) { FormScreen(navController) }
         composable(Routes.NOTIFICATION) { NotificationScreen(navController) }
         composable(Routes.LOCATION) {
@@ -59,6 +57,5 @@ fun AppNavHost(navController: NavHostController) {
             LocationScreen(viewModel = locationViewModel, navController = navController)
         }
         composable(Routes.LIST) { ListScreen(navController) }
-
     }
 }

@@ -27,6 +27,7 @@ class DashboardViewModel : ViewModel() {
 
     /**
      * Carga el saldo y el historial de movimientos desde la API.
+     * AHORA PIDE SOLO LOS ÚLTIMOS 10 MOVIMIENTOS PARA EL DASHBOARD.
      */
     fun cargarDatosDashboard(rut: String) {
         viewModelScope.launch {
@@ -35,7 +36,7 @@ class DashboardViewModel : ViewModel() {
             try {
                 // Llamadas a la API
                 val saldoResponse = RetrofitClient.apiService.obtenerSaldoActual(rut)
-                val movimientosResponse = RetrofitClient.apiService.obtenerMovimientosPorUsuario(rut)
+                val movimientosResponse = RetrofitClient.apiService.obtenerMovimientosPorUsuario(rut, limit = 10) // <-- ¡NUEVO CAMBIO!
 
                 if (saldoResponse.isSuccessful && saldoResponse.body() != null &&
                     movimientosResponse.isSuccessful && movimientosResponse.body() != null) {

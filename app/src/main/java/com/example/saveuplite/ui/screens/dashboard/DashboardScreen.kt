@@ -41,9 +41,17 @@ import com.example.saveuplite.viewmodel.UsuarioViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.File
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.math.abs
+
+// --- FUNCIÓN DE UTILIDAD PARA FORMATEAR MONEDA ---
+@Composable
+private fun formatToCLP(amount: Double): String {
+    val format = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
+    format.maximumFractionDigits = 0 // No queremos decimales para el peso chileno
+    return format.format(amount).replace(",", ".") // Reemplaza la coma por punto
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,7 +141,10 @@ fun DashboardScreen(
                         Icon(Icons.Default.ArrowForward, contentDescription = "Ir a funciones adicionales")
                     }
                     Spacer(modifier = Modifier.height(24.dp))
-                    TransactionHistory(dashboardState.historialMovimientos)
+                    TransactionHistory(
+                        historial = dashboardState.historialMovimientos,
+                        onNavigateToHistory = { navController.navigate(Routes.TRANSACTION_HISTORY) } // <-- ¡NUEVO CAMBIO!
+                    )
                 }
             }
         }
@@ -224,7 +235,7 @@ fun BalanceCard(saldoActual: Double) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Saldo Actual", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "$ ${ "%.2f".format(saldoActual)}", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(text = formatToCLP(saldoActual), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -246,14 +257,22 @@ fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
 }
 
 @Composable
-fun TransactionHistory(historial: List<MovimientoResponseDTO>) {
-    Text("Historial de Movimientos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+fun TransactionHistory(historial: List<MovimientoResponseDTO>, onNavigateToHistory: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToHistory),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text("Últimos Movimientos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+        Icon(Icons.Default.ChevronRight, contentDescription = "Ver historial completo")
+    }
     Spacer(modifier = Modifier.height(16.dp))
     if (historial.isEmpty()) {
         Text("Aún no tienes movimientos.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     } else {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(historial) { movimiento ->
+        // La LazyColumn aquí es solo para mostrar los items limitados, no para scroll infinito.
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            historial.forEach { movimiento ->
                 TransactionItem(item = movimiento)
             }
         }
@@ -264,7 +283,10 @@ fun TransactionHistory(historial: List<MovimientoResponseDTO>) {
 fun TransactionItem(item: MovimientoResponseDTO) {
     val isIncome = item.monto > 0
     val color = if (isIncome) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
+    val formattedAmount = formatToCLP(item.monto)
     val sign = if (isIncome) "+" else ""
+    val finalAmount = if(isIncome) "$sign $formattedAmount" else formattedAmount
+
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
 
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -273,7 +295,7 @@ fun TransactionItem(item: MovimientoResponseDTO) {
                 Text(text = item.descripcion, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text(text = dateFormat.format(item.fecha), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(text = "$sign $ ${ "%.2f".format(item.monto)}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = color)
+            Text(text = finalAmount, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = color)
         }
     }
 }

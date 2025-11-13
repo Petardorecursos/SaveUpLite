@@ -1,8 +1,8 @@
 # Arquitectura de Backend - Modelo Orientado a Transacciones
 
-**Versión:** 1.0
+**Versión:** 1.1
 **Autor:** Gemini
-**Fecha:** 2024-05-22
+**Fecha:** 2024-05-23
 
 ## 1. Concepto Clave: Los Movimientos como Fuente Única de Verdad
 
@@ -20,78 +20,44 @@ Este enfoque garantiza la máxima integridad y consistencia de los datos, elimin
 
 ### 2.1. `Usuario` (Ya implementada)
 
-La entidad principal. Cada `Movimiento`, `Deuda` y `MetaAhorro` estará directamente asociada a un `Usuario`.
-
-- `ID_USUARIO` (PK - RUT)
-- `NOMBRE`
-- `APELLIDO`
-- `EMAIL`
-- `CONTRASENA_HASH`
-- `FECHA_REGISTRO`
+- `ID_USUARIO` (PK - RUT), `NOMBRE`, `APELLIDO`, `EMAIL`, `CONTRASENA_HASH`, `FECHA_REGISTRO`
 
 ### 2.2. `Movimiento` (La tabla central)
 
-Contiene el registro de cada transacción monetaria.
+- `ID_MOVIMIENTO`, `MONTO`, `DESCRIPCION`, `FECHA`, `TIPO_MOVIMIENTO`, `USUARIO_ID` (FK), `DEUDA_ID` (FK, Nullable), `META_ID` (FK, Nullable)
 
-- `ID_MOVIMIENTO` (PK, Long, Autoincremental)
-- `MONTO` (Double): El valor de la transacción. **Positivo para ingresos, negativo para gastos**.
-- `DESCRIPCION` (String): Nota descriptiva (ej: "Café de la mañana", "Salario mensual").
-- `FECHA` (Timestamp): Fecha y hora en que se registró el movimiento.
-- `TIPO_MOVIMIENTO` (Enum/String): Categoría para dar contexto (`INGRESO_GENERAL`, `GASTO_GENERAL`, `PAGO_DEUDA`, `ABONO_META`, `RETIRO_META`, etc.).
-- `USUARIO_ID` (FK): Referencia al `ID_USUARIO` al que pertenece el movimiento.
-- `DEUDA_ID` (FK, Nullable): Si el movimiento es un pago/abono, aquí se guarda la referencia a la `ID_DEUDA` correspondiente.
-- `META_ID` (FK, Nullable): Si es un abono/retiro de una meta, aquí se guarda la referencia a la `ID_META`.
+### 2.3. `Deuda` (Pendiente)
 
-### 2.3. `Deuda`
+- `ID_DEUDA`, `NOMBRE`, `MONTO_TOTAL`, `FECHA_CREACION`, `USUARIO_ID` (FK)
 
-Representa una deuda que el usuario ha contraído y necesita pagar.
+### 2.4. `MetaAhorro` (Pendiente)
 
-- `ID_DEUDA` (PK, Long, Autoincremental)
-- `NOMBRE` (String): Descripción de la deuda (ej: "Préstamo universitario", "Tarjeta de crédito").
-- `MONTO_TOTAL` (Double): El valor original y completo de la deuda.
-- `FECHA_CREACION` (Timestamp): Cuándo se registró la deuda.
-- `USUARIO_ID` (FK): Referencia al `ID_USUARIO` dueño de la deuda.
-
-**Importante:** La `Deuda` no tiene un campo `saldo_pendiente`. Este valor se calcula dinámicamente: `Saldo Pendiente = MONTO_TOTAL - SUM(movimientos.MONTO donde DEUDA_ID = esta_deuda.ID)`.
-
-### 2.4. `MetaAhorro`
-
-Representa un objetivo de ahorro del usuario.
-
-- `ID_META` (PK, Long, Autoincremental)
-- `NOMBRE` (String): Descripción de la meta (ej: "Vacaciones de verano", "Nuevo PC").
-- `MONTO_OBJETIVO` (Double): La cantidad de dinero que se desea alcanzar.
-- `FECHA_CREACION` (Timestamp): Cuándo se fijó la meta.
-- `USUARIO_ID` (FK): Referencia al `ID_USUARIO`.
-
-**Importante:** La `MetaAhorro` no tiene un campo `total_ahorrado`. Este valor se calcula dinámicamente: `Total Ahorrado = SUM(movimientos.MONTO donde META_ID = esta_meta.ID)`.
+- `ID_META`, `NOMBRE`, `MONTO_OBJETIVO`, `FECHA_CREACION`, `USUARIO_ID` (FK)
 
 ---
 
-## 3. Flujos de Datos Principales
+## 3. Flujos de Datos Principales y Endpoints
 
 - **Obtener Saldo Principal:**
   - `GET /api/saldos/{usuarioId}`
-  - El backend ejecuta: `SELECT SUM(MONTO) FROM Movimiento WHERE USUARIO_ID = ?`.
 
 - **Registrar un Gasto Común:**
   - `POST /api/movimientos`
-  - El frontend envía: `{ "monto": -15.50, "descripcion": "Almuerzo", "tipo": "GASTO_GENERAL", "usuarioId": ... }`.
-  - El backend crea una nueva fila en la tabla `Movimiento`.
 
-- **Crear una Nueva Deuda:**
-  - `POST /api/deudas`
-  - El frontend envía: `{ "nombre": "Deuda Tarjeta", "montoTotal": 500.0, "usuarioId": ... }`.
-  - El backend crea una nueva fila en la tabla `Deuda`.
+- **Obtener Historial Reciente (Dashboard):**
+  - `GET /api/movimientos/usuario/{rut}?limit=10`
+  - Devuelve solo los últimos 10 movimientos para una carga rápida en la pantalla principal.
 
-- **Abonar a una Deuda:**
-  - `POST /api/movimientos`
-  - El frontend envía: `{ "monto": -100.0, "descripcion": "Abono a Deuda Tarjeta", "tipo": "PAGO_DEUDA", "deudaId": ..., "usuarioId": ... }`.
-  - El backend crea un nuevo `Movimiento` con un monto negativo y lo enlaza a la deuda correspondiente.
+- **Obtener Historial Completo (Paginado):**
+  - `GET /api/movimientos/paginados/usuario/{rut}?page=0&size=50`
+  - Devuelve los movimientos en bloques (páginas) para la pantalla de historial detallado, mejorando el rendimiento.
 
-- **Obtener Estado de una Deuda:**
-  - `GET /api/deudas/{deudaId}`
-  - El backend recupera la `Deuda` y, por separado, calcula el total abonado con `SELECT SUM(MONTO) FROM Movimiento WHERE DEUDA_ID = ?` para presentarlo en la UI.
+- **Exportar Historial (Futuro):**
+  - `GET /api/movimientos/usuario/{rut}/export`
+  - Endpoint planificado para generar y devolver un archivo en formato CSV con todos los movimientos del usuario.
+
+- **Flujos de Deudas y Metas (Pendiente):**
+  - Se implementarán los endpoints `POST /api/deudas`, `GET /api/deudas/{deudaId}`, etc., cuando se inicie la Fase 3.
 
 ---
 
@@ -99,15 +65,15 @@ Representa un objetivo de ahorro del usuario.
 
 ### Pros:
 
-1.  **Integridad de Datos (Máxima):** Es matemáticamente imposible que el saldo se corrompa o desincronice, ya que es un resultado directo del historial de transacciones.
-2.  **Auditabilidad Completa:** Se tiene un registro perfecto de cada operación que afectó el dinero del usuario, lo que facilita la depuración y la implementación de futuras funcionalidades de historial.
-3.  **Escalabilidad y Flexibilidad:** Este modelo es muy fácil de extender. Para añadir "Inversiones", simplemente se crea una entidad `Inversion` y se generan `Movimientos` que la referencien. El núcleo del sistema no se ve afectado.
-4.  **Simplicidad Lógica:** La lógica de negocio para crear transacciones es muy simple: siempre es una inserción (`INSERT`) en la tabla `Movimiento`.
+1.  **Integridad de Datos (Máxima)**
+2.  **Auditabilidad Completa**
+3.  **Escalabilidad y Flexibilidad**
+4.  **Simplicidad Lógica**
 
 ### Contras:
 
-1.  **Rendimiento en Cálculos Masivos:** Si un usuario acumula cientos de miles de movimientos, calcular el saldo total mediante una suma podría volverse marginalmente más lento que leer un valor pre-calculado.
-    - **Mitigación:** Este es un problema que solo aparece a una escala masiva. Si se llegara a presentar, se puede solucionar fácilmente implementando un sistema de **caching** (ej: Redis) que guarde temporalmente el saldo calculado, o creando vistas materializadas en la base de datos que se actualizan periódicamente.
+1.  **Rendimiento en Cálculos Masivos:**
+    - **Mitigación (Implementada):** El problema de cargar listas masivas de movimientos en el cliente ha sido resuelto mediante la implementación de **paginación en la API**. La app ahora solicita solo los datos que necesita ver: los últimos 10 para el dashboard y páginas de 50 para el historial completo. La mitigación del cálculo del saldo (caching) sigue pendiente para el futuro si fuese necesario.
 
 ---
 
@@ -119,15 +85,29 @@ Para asegurar la flexibilidad durante el desarrollo y la robustez en producción
 
 -   **Base de Datos:** Oracle Database.
 -   **Configuración:** Gestionada a través del archivo `application-dev.properties`.
--   **Propósito:** Permite un desarrollo local rápido, con la capacidad de recrear y modificar el esquema de la base de datos fácilmente (`spring.jpa.hibernate.ddl-auto=create`). La conexión se realiza a una instancia local o de red privada de Oracle.
 
 ### 5.2. Entorno de Producción (`prod`)
 
 -   **Plataforma de Despliegue:** **Render**.
--   **Método de Despliegue:** **Docker**. Se utiliza un `Dockerfile` multi-etapa que primero compila la aplicación con Maven y luego la empaqueta en una imagen ligera de ejecución (JRE), optimizando el tamaño y la seguridad.
+-   **Método de Despliegue:** **Docker**.
 -   **Base de Datos:** **PostgreSQL** (servicio gestionado por Render).
--   **Configuración:** Gestionada por el archivo `application-prod.properties`.
-    -   La configuración sensible (URL de la base de datos, usuario, contraseña, `jwt.secret`) **no se escribe en el código**. Se inyecta a través de **Variables de Entorno** configuradas en el dashboard de Render.
-    -   La propiedad `spring.jpa.hibernate.ddl-auto` se establece en `update` para el primer despliegue (para crear las tablas) y luego se cambia a `validate` para mayor seguridad en despliegues posteriores.
+-   **Configuración:** Gestionada por `application-prod.properties` y **Variables de Entorno** en Render para los secretos.
+    -   **Nota sobre CORS:** `app.cors.allow-credentials` se establece en `false` cuando `app.cors.allowed-origins` es `*` para cumplir con los requisitos de seguridad del protocolo.
 
-Este enfoque dual permite aprovechar la base de datos existente para el desarrollo local mientras se utiliza un servicio de base de datos moderno, gestionado y fácil de integrar en la nube para la producción, siguiendo las mejores prácticas de DevOps y seguridad.
+---
+
+## 6. Notas de Implementación (Frontend)
+
+Esta sección documenta decisiones de implementación y detalles específicos del cliente Android que son relevantes para la experiencia de usuario.
+
+### 6.1. Formato de Moneda
+
+-   **Localización:** Toda la visualización de montos monetarios en la aplicación (saldo, historial, etc.) se formatea para la localización de **Peso Chileno (CLP)**.
+-   **Implementación:** Se utiliza `java.text.NumberFormat` con el `Locale("es", "CL")`.
+-   **Reglas de Formato:**
+    -   Se utiliza el punto (`.`) como separador de miles.
+    -   Se eliminan los decimales (`maximumFractionDigits = 0`).
+    -   Se antepone el símbolo de peso (`$`).
+-   **Ejemplos:**
+    -   `1500.0` se muestra como `$ 1.500`.
+    -   `-500.0` se muestra como `-$ 500`.
