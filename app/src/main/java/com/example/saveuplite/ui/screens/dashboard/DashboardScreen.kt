@@ -15,13 +15,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -36,6 +35,7 @@ import coil.compose.AsyncImage
 import com.example.saveuplite.model.dto.MovimientoResponseDTO
 import com.example.saveuplite.model.enums.TipoMovimiento
 import com.example.saveuplite.ui.navigation.Routes
+import com.example.saveuplite.ui.theme.* 
 import com.example.saveuplite.viewmodel.DashboardViewModel
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -98,12 +98,10 @@ fun DashboardScreen(
         }
     }
 
-    // Carga los datos del dashboard cuando el usuario está disponible
     LaunchedEffect(usuarioState.currentUser) {
         usuarioState.currentUser?.rut?.let { dashboardViewModel.cargarDatosDashboard(it) }
     }
 
-    // Muestra errores del ViewModel
     LaunchedEffect(dashboardState.errorMessage) {
         dashboardState.errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
@@ -111,18 +109,16 @@ fun DashboardScreen(
         }
     }
 
-    val gradient = Brush.verticalGradient(colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.background))
-
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = { DrawerContent(navController, usuarioViewModel, profileImageUri, onImageClick = { showImageSourceDialog = true }) }
     ) {
         Scaffold(
-            containerColor = Color.Transparent,
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = { TopBar(scope, drawerState) }
         ) { padding ->
             Column(
-                modifier = Modifier.fillMaxSize().background(gradient).padding(padding).padding(16.dp),
+                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if(dashboardState.isLoading && dashboardState.historialMovimientos.isEmpty()) {
@@ -134,16 +130,10 @@ fun DashboardScreen(
                         onIngresoClick = { tipoMovimientoDialog = TipoMovimiento.INGRESO_GENERAL; showDialog = true },
                         onGastoClick = { tipoMovimientoDialog = TipoMovimiento.GASTO_GENERAL; showDialog = true }
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(onClick = { navController.navigate(Routes.LEGACY_HOME) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Funciones Adicionales (Legacy)")
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(Icons.Default.ArrowForward, contentDescription = "Ir a funciones adicionales")
-                    }
                     Spacer(modifier = Modifier.height(24.dp))
                     TransactionHistory(
                         historial = dashboardState.historialMovimientos,
-                        onNavigateToHistory = { navController.navigate(Routes.TRANSACTION_HISTORY) } // <-- ¡NUEVO CAMBIO!
+                        onNavigateToHistory = { navController.navigate(Routes.TRANSACTION_HISTORY) }
                     )
                 }
             }
@@ -178,23 +168,39 @@ fun DashboardScreen(
 @Composable
 private fun DrawerContent(navController: NavHostController, usuarioViewModel: UsuarioViewModel, profileImageUri: Uri?, onImageClick: () -> Unit) {
     val usuarioState by usuarioViewModel.uiState.collectAsState()
-    ModalDrawerSheet {
+    ModalDrawerSheet(
+        drawerContainerColor = MaterialTheme.colorScheme.surface
+    ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(24.dp))
-            Box(modifier = Modifier.size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer).clickable(onClick = onImageClick), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    .clickable(onClick = onImageClick),
+                contentAlignment = Alignment.Center
+            ) {
                 if (profileImageUri != null) {
                     AsyncImage(model = profileImageUri, contentDescription = "Imagen de perfil", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
-                    Icon(imageVector = Icons.Default.Person, contentDescription = "Ícono de usuario", modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Icon(imageVector = Icons.Outlined.Person, contentDescription = "Ícono de usuario", modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = usuarioState.currentUser?.nombre ?: "Invitado", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Text(text = usuarioState.currentUser?.email ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(32.dp))
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Outlined.Info, null) },
+                label = { Text("Funciones Legacy") },
+                selected = false,
+                onClick = { navController.navigate(Routes.LEGACY_HOME) },
+                shape = RoundedCornerShape(12.dp)
+            )
             Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = {
@@ -204,9 +210,10 @@ private fun DrawerContent(navController: NavHostController, usuarioViewModel: Us
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PalePink, contentColor = DarkGrayText)
             ) {
-                Text("Cerrar Sesión", color = MaterialTheme.colorScheme.onError)
+                Text("Cerrar Sesión")
             }
         }
     }
@@ -216,14 +223,14 @@ private fun DrawerContent(navController: NavHostController, usuarioViewModel: Us
 @Composable
 private fun TopBar(scope: CoroutineScope, drawerState: DrawerState) {
     TopAppBar(
-        title = { Text("Dashboard") },
+        title = { Text("Dashboard", fontWeight = FontWeight.Bold) },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            titleContentColor = MaterialTheme.colorScheme.onPrimary
+            containerColor = Color.Transparent,
+            titleContentColor = MaterialTheme.colorScheme.onBackground
         ),
         navigationIcon = {
             IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                Icon(Icons.Filled.Menu, contentDescription = "Abrir menú", tint = MaterialTheme.colorScheme.onPrimary)
+                Icon(Icons.Outlined.Menu, contentDescription = "Abrir menú", tint = MaterialTheme.colorScheme.onBackground)
             }
         }
     )
@@ -231,11 +238,21 @@ private fun TopBar(scope: CoroutineScope, drawerState: DrawerState) {
 
 @Composable
 fun BalanceCard(saldoActual: Double) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Saldo Actual", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MediumBlue),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.Start) {
+            Text("Saldo Actual", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = formatToCLP(saldoActual), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                text = formatToCLP(saldoActual),
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
@@ -243,15 +260,25 @@ fun BalanceCard(saldoActual: Double) {
 @Composable
 fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Button(onClick = onIngresoClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) {
-            Icon(Icons.Default.Add, contentDescription = "Ingreso")
+        Button(
+            onClick = onIngresoClick, 
+            modifier = Modifier.weight(1f).height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = PaleAqua, contentColor = DarkGrayText)
+        ) {
+            Icon(Icons.Outlined.Add, contentDescription = "Ingreso")
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Ingreso")
+            Text("Ingreso", fontWeight = FontWeight.SemiBold)
         }
-        Button(onClick = onGastoClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-            Icon(Icons.Default.Remove, contentDescription = "Gasto")
+        Button(
+            onClick = onGastoClick, 
+            modifier = Modifier.weight(1f).height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = PalePink, contentColor = DarkGrayText)
+        ) {
+            Icon(Icons.Outlined.Remove, contentDescription = "Gasto")
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Gasto")
+            Text("Gasto", fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -259,20 +286,19 @@ fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
 @Composable
 fun TransactionHistory(historial: List<MovimientoResponseDTO>, onNavigateToHistory: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToHistory),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToHistory).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text("Últimos Movimientos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
-        Icon(Icons.Default.ChevronRight, contentDescription = "Ver historial completo")
+        Text("Últimos Movimientos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+        Icon(Icons.Outlined.ChevronRight, contentDescription = "Ver historial completo", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
     }
-    Spacer(modifier = Modifier.height(16.dp))
+    Spacer(modifier = Modifier.height(8.dp))
     if (historial.isEmpty()) {
-        Text("Aún no tienes movimientos.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Aún no tienes movimientos.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
     } else {
-        // La LazyColumn aquí es solo para mostrar los items limitados, no para scroll infinito.
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            historial.forEach { movimiento ->
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            historial.take(5).forEach { movimiento -> // Limita a mostrar 5 por defecto
                 TransactionItem(item = movimiento)
             }
         }
@@ -282,20 +308,26 @@ fun TransactionHistory(historial: List<MovimientoResponseDTO>, onNavigateToHisto
 @Composable
 fun TransactionItem(item: MovimientoResponseDTO) {
     val isIncome = item.monto > 0
-    val color = if (isIncome) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
+    val amountColor = if (isIncome) DesaturatedPurple else DarkGrayText
     val formattedAmount = formatToCLP(item.monto)
     val sign = if (isIncome) "+" else ""
-    val finalAmount = if(isIncome) "$sign $formattedAmount" else formattedAmount
+    val finalAmount = if(isIncome) "$sign$formattedAmount" else formattedAmount
 
-    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Card(
+        modifier = Modifier.fillMaxWidth(), 
+        shape = RoundedCornerShape(18.dp), 
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Icono podría ir aquí
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = item.descripcion, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = item.descripcion, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(text = dateFormat.format(item.fecha), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(text = finalAmount, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = color)
+            Text(text = finalAmount, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = amountColor)
         }
     }
 }
@@ -305,30 +337,73 @@ fun TransactionItem(item: MovimientoResponseDTO) {
 fun AddTransactionDialog(tipo: TipoMovimiento, onDismiss: () -> Unit, onConfirm: (Double, String) -> Unit) {
     var monto by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
+    
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+        cursorColor = MaterialTheme.colorScheme.primary
+    )
+
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text(if (tipo == TipoMovimiento.INGRESO_GENERAL) "Añadir Ingreso" else "Añadir Gasto") },
         text = {
             Column {
-                OutlinedTextField(value = monto, onValueChange = { monto = it }, label = { Text("Monto") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción") })
+                OutlinedTextField(
+                    value = monto, 
+                    onValueChange = { monto = it }, 
+                    label = { Text("Monto") }, 
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = textFieldColors
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = descripcion, 
+                    onValueChange = { descripcion = it }, 
+                    label = { Text("Descripción") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = textFieldColors
+                )
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(monto.toDoubleOrNull() ?: 0.0, descripcion) }) { Text("Guardar") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        confirmButton = { 
+            Button(
+                onClick = { onConfirm(monto.toDoubleOrNull() ?: 0.0, descripcion) },
+                shape = RoundedCornerShape(12.dp)
+            ) { 
+                Text("Guardar") 
+            } 
+        },
+        dismissButton = { 
+            TextButton(onClick = onDismiss) { 
+                Text("Cancelar") 
+            } 
+        }
     )
 }
 
 @Composable
 private fun ImageSourceDialog(onDismiss: () -> Unit, onCameraClick: () -> Unit, onGalleryClick: () -> Unit) {
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text("Cambiar Foto de Perfil") },
         text = {
-            Column {
-                TextButton(onClick = { onDismiss(); onCameraClick() }) { Text("Tomar Foto") }
-                TextButton(onClick = { onDismiss(); onGalleryClick() }) { Text("Seleccionar de Galería") }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = { onDismiss(); onCameraClick() },
+                    modifier = Modifier.fillMaxWidth()
+                ) { 
+                    Text("Tomar Foto", modifier = Modifier.padding(8.dp)) 
+                }
+                TextButton(
+                    onClick = { onDismiss(); onGalleryClick() },
+                    modifier = Modifier.fillMaxWidth()
+                ) { 
+                    Text("Seleccionar de Galería", modifier = Modifier.padding(8.dp)) 
+                }
             }
         },
         confirmButton = {},

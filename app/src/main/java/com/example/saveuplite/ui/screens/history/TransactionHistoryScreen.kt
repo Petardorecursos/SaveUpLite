@@ -1,21 +1,24 @@
 package com.example.saveuplite.ui.screens.history
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.saveuplite.ui.screens.dashboard.TransactionItem
+import com.example.saveuplite.ui.screens.dashboard.TransactionItem // Reutilizamos el item rediseñado
 import com.example.saveuplite.viewmodel.TransactionHistoryViewModel
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 
@@ -52,43 +55,50 @@ fun TransactionHistoryScreen(
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
             .collect { lastIndex ->
-                if (lastIndex != null && lastIndex >= historyState.movements.size - 1 && historyState.canLoadMore) {
+                if (lastIndex != null && !historyState.isLoadingNextPage && lastIndex >= historyState.movements.size - 5 && historyState.canLoadMore) {
                     usuarioState.currentUser?.rut?.let { historyViewModel.loadNextPage(it) }
                 }
             }
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Historial Completo") },
+                title = { Text("Historial Completo", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.Outlined.ArrowBack, contentDescription = "Volver", tint = MaterialTheme.colorScheme.onBackground)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)
-        ) {
-            if (historyState.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (historyState.isLoading && historyState.movements.isEmpty()) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (historyState.movements.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No se encontraron movimientos.")
-                }
+                Text(
+                    text = "No se encontraron movimientos.",
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
-                LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     items(historyState.movements) { movimiento ->
                         TransactionItem(item = movimiento)
                     }
                     if (historyState.isLoadingNextPage) {
                         item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator()
                             }
                         }

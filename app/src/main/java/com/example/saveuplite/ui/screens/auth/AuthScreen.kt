@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.saveuplite.ui.navigation.Routes
+import com.example.saveuplite.ui.theme.MediumBlue
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 
 // --- Transformación visual para el RUT ---
@@ -165,20 +165,27 @@ fun AuthScreen(
         }
     }
 
-    val gradient = Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.background))
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+        cursorColor = MaterialTheme.colorScheme.primary,
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    )
 
     Box(
-        modifier = Modifier.fillMaxSize().background(gradient).padding(16.dp),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("SaveUp Lite", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+            Text("SaveUp Lite", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             Spacer(Modifier.height(24.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MediumBlue),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
                     Text(
@@ -206,7 +213,8 @@ fun AuthScreen(
                             supportingText = { rutError?.let { Text(it) } },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                            colors = textFieldColors
                         )
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
@@ -217,7 +225,8 @@ fun AuthScreen(
                             supportingText = { nombreError?.let { Text(it) } },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                            colors = textFieldColors
                         )
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
@@ -228,7 +237,8 @@ fun AuthScreen(
                             supportingText = { apellidoError?.let { Text(it) } },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                            colors = textFieldColors
                         )
                         Spacer(Modifier.height(8.dp))
                     }
@@ -243,7 +253,8 @@ fun AuthScreen(
                         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                         isError = emailError != null,
                         supportingText = { emailError?.let { Text(it) } },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
@@ -258,7 +269,8 @@ fun AuthScreen(
                         keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
                         isError = contrasenaError != null,
                         supportingText = { contrasenaError?.let { Text(it) } },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = textFieldColors
                     )
                     Spacer(Modifier.height(24.dp))
 
@@ -277,7 +289,8 @@ fun AuthScreen(
                                     }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().height(50.dp)
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(if (isLoginScreen) "Iniciar Sesión" else "Registrarme")
                         }
