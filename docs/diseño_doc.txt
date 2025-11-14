@@ -1,16 +1,16 @@
 # Documentación de Diseño: Rework Visual de SaveUp Lite
 
-Este documento detalla el rediseño visual de la aplicación implementado para adoptar un estilo moderno, limpio y cohesivo, basado en los principios de "Soft UI" / "Neumorfismo-lite".
+Este documento detalla el rediseño visual de la aplicación implementado para adoptar un estilo moderno, limpio y cohesivo.
 
 ## 1. Filosofía de Diseño
 
-El nuevo estilo visual se centra en una interfaz suave y minimalista que utiliza sombras y luces sutiles para dar una sensación de que los elementos de la UI emergen del fondo. El objetivo es crear una experiencia de usuario tranquila, legible y agradable, con un fuerte énfasis en la claridad de la información y los datos presentados.
+El estilo visual se divide en dos enfoques principales para crear una experiencia de usuario rica y contextual:
 
-**Elementos Clave:**
-- **Esquinas muy redondeadas:** Aportan suavidad y un aspecto amigable.
-- **Sombras sutiles:** Crean un efecto de elevación y profundidad sin ser abrumadoras.
-- **Espaciado generoso:** Asegura que la interfaz se sienta "aireada" y fácil de escanear.
-- **Iconografía de línea:** Mantiene la ligereza visual del diseño.
+- **Diseño Limpio y Moderno (Pantalla de Autenticación):** Inspirado en diseños contemporáneos, esta pantalla utiliza una estructura de dos tonos con un encabezado de color y una tarjeta de formulario limpia que se desliza desde abajo. El objetivo es ser amigable, directo y visualmente atractivo para el primer contacto del usuario.
+
+- **Soft UI (Dashboard y Pantallas Interiores):** Una vez dentro de la aplicación, la interfaz cambia a un estilo "Soft UI" o "Neumorfismo-lite". Se utilizan tarjetas de colores suaves con elevaciones y esquinas redondeadas para presentar datos de forma clara y tranquila.
+
+- **Consistencia:** A pesar de los dos enfoques, se mantiene la misma paleta de colores, tipografía e iconografía en toda la aplicación para garantizar una experiencia unificada.
 
 ---
 
@@ -18,64 +18,46 @@ El nuevo estilo visual se centra en una interfaz suave y minimalista que utiliza
 
 Se implementó una paleta de colores natural y cálida, definida en `app/src/main/java/com/example/saveuplite/ui/theme/Color.kt`.
 
-- **Fondo Principal:** `SoftWhite` (#F8F8FA) - Un blanco suave que sirve como base para toda la app.
-- **Acento Primario:** `LavenderBlue` (#7E8CE7) / `DesaturatedPurple` (#8F99F5) - Usado para elementos interactivos clave, progreso y valores importantes.
-- **Acentos Secundarios (Tarjetas y Botones):**
-    - `PalePink` (#F8E7EA): Para acciones de "gasto" o secundarias.
-    - `PaleAqua` (#E0F5F2): Para acciones de "ingreso" o positivas.
-    - `MediumBlue` (#E1E4F9): Usado en tarjetas de datos importantes, como la tarjeta de saldo y el formulario de autenticación.
+- **Fondo Principal:** `SoftWhite` (#F8F8FA) y `Color.White` para las tarjetas de formulario.
+- **Acento Primario:** `LavenderBlue` (#7E8CE7) - Usado para botones principales y elementos interactivos.
+- **Acentos Secundarios:**
+    - `PaleAqua` (#E0F5F2): Usado para el encabezado en la pantalla de autenticación y botones de "ingreso".
+    - `PalePink` (#F8E7EA): Para acciones de "gasto".
+    - `MediumBlue` (#E1E4F9): Para tarjetas de datos importantes como el saldo.
 - **Colores de Texto:**
     - `DarkGrayText` (#333333): Para títulos y texto principal.
-    - `MediumGrayText` (#888888): Para subtítulos y texto descriptivo.
-
-El tema de la aplicación fue actualizado en `app/src/main/java/com/example/saveuplite/ui/theme/Theme.kt` para reflejar esta nueva paleta en el `LightColorScheme`.
+    - `MediumGrayText` (#888888) / `LightGrayText` (#A0A0A0): Para subtítulos y placeholders.
 
 ---
 
 ## 3. Tipografía
 
-Se ha definido una nueva jerarquía tipográfica para mejorar la legibilidad y la estructura visual, utilizando la familia de fuentes **Inter**.
+Se ha estandarizado el uso de la familia de fuentes **Inter**. La configuración se encuentra en `app/src/main/java/com/example/saveuplite/ui/theme/Type.kt`.
 
-- **Archivo de Configuración:** `app/src/main/java/com/example/saveuplite/ui/theme/Type.kt`.
-- **Fuente:** `Inter` (Regular, Medium, SemiBold, Bold, ExtraBold).
-
-**Jerarquía Definida:**
-- `displayLarge`: Para valores monetarios muy grandes (ej. saldo principal).
-- `headlineLarge`: Para títulos de pantalla.
-- `titleLarge`: Para títulos de sección.
-- `bodyLarge`: Para el cuerpo de texto principal.
-- `bodyMedium` y `bodySmall`: Para textos secundarios y etiquetas de menor importancia.
-
-**ACCIÓN REQUERIDA:** Para que la tipografía funcione, se deben añadir los archivos de fuente `.ttf` de "Inter" al directorio `app/src/main/res/font`. Los archivos deben ser renombrados a minúsculas y con guiones bajos (ej. `inter_regular.ttf`).
+**ACCIÓN REQUERIDA:** Añadir los archivos de fuente `.ttf` de "Inter" al directorio `app/src/main/res/font`.
 
 ---
 
 ## 4. Iconografía
 
-Para mantener la ligereza y el minimalismo del diseño, se ha estandarizado el uso de íconos de la variante **Outlined** de Material Design.
-
-- **Implementación:** Se reemplazaron los íconos `Icons.Filled.*` por `Icons.Outlined.*` en los archivos de las pantallas rediseñadas.
-- **Ejemplos:** El ícono de menú, los botones de añadir/quitar, y las flechas de navegación ahora son íconos de línea delgados.
+Se ha estandarizado el uso de íconos de la variante **Outlined** de Material Design para mantener una apariencia visual ligera.
 
 ---
 
-## 5. Pantallas Modificadas
+## 5. Pantallas y Componentes Modificados
 
-El rediseño se ha aplicado a las siguientes pantallas principales:
+- **`AuthScreen.kt` (Diseño Limpio y Moderno):**
+    - **Estructura:** Pantalla dividida en dos. Un encabezado superior (30% de la pantalla) con fondo `PaleAqua` y una tarjeta de formulario blanca con esquinas superiores redondeadas que ocupa el resto del espacio.
+    - **Encabezado:** Contiene el saludo y el logo "SaveUp" con una nueva jerarquía visual. Utiliza la imagen `auth_background.jpg` como un patrón sutil y semitransparente.
+    - **Campos de Texto:** Se utiliza un `AuthTextField` personalizado, que es un `OutlinedTextField` estilizado con fondo `SoftWhite` y sin borde en estado de reposo, para un look minimalista.
+    - **Botones Sociales:** Se añadió la estructura visual para botones de inicio de sesión con Google, Facebook y Apple (actualmente comentada en el código para evitar errores de compilación).
 
-- **`AuthScreen.kt`:**
-    - Se actualizó el fondo al color `SoftWhite`.
-    - La tarjeta de inicio de sesión/registro ahora usa el color `MediumBlue` y tiene esquinas muy redondeadas (24.dp) para mayor consistencia visual con el resto de la app.
-    - Los campos de texto (`OutlinedTextField`) y botones se ajustan a la nueva paleta de colores y tipografía.
+- **`DashboardScreen.kt` (Estilo Soft UI):**
+    - `TopAppBar` transparente.
+    - `BalanceCard` usa el color `MediumBlue`.
+    - `ActionButtons` usan los colores `PaleAqua` y `PalePink`.
+    - `TransactionItem` son tarjetas limpias y redondeadas.
 
-- **`DashboardScreen.kt`:**
-    - `TopAppBar` transparente para integrarse con el fondo.
-    - La `BalanceCard` ahora es más prominente, usando el color `MediumBlue` y tipografía `displayLarge` para el saldo.
-    - Los `ActionButtons` ("Ingreso" y "Gasto") usan los colores `PaleAqua` y `PalePink` respectivamente.
-    - Los `TransactionItem` dentro de la lista son tarjetas individuales con esquinas redondeadas y un estilo limpio.
-    - Se actualizaron todos los íconos a su versión `Outlined`.
-
-- **`TransactionHistoryScreen.kt`:**
-    - Se aplicó el mismo estilo que en el Dashboard: fondo `SoftWhite` y `TopAppBar` transparente.
-    - La lista de transacciones reutiliza el componente `TransactionItem` rediseñado, asegurando consistencia.
-    - El ícono de navegación "Atrás" fue actualizado a la versión `Outlined`.
+- **`TransactionHistoryScreen.kt` (Estilo Soft UI):**
+    - Mantiene la consistencia con el Dashboard, usando fondo `SoftWhite` y `TopAppBar` transparente.
+    - Reutiliza el `TransactionItem` para coherencia visual.

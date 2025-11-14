@@ -1,6 +1,7 @@
 package com.example.saveuplite.ui.screens.auth
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,28 +9,37 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.saveuplite.R
 import com.example.saveuplite.ui.navigation.Routes
-import com.example.saveuplite.ui.theme.MediumBlue
+import com.example.saveuplite.ui.theme.*
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 
-// --- Transformación visual para el RUT ---
+// --- Transformación visual para el RUT (se mantiene sin cambios) ---
 private class RutVisualTransformation : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val trimmed = if (text.text.length >= 9) text.text.substring(0..8) else text.text
@@ -59,7 +69,50 @@ private class RutVisualTransformation : VisualTransformation {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AuthTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    icon: ImageVector,
+    isError: Boolean,
+    errorText: String?,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label, color = MediumGrayText) },
+        leadingIcon = { Icon(icon, contentDescription = null, tint = LightGrayText) },
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = LavenderBlue,
+            unfocusedBorderColor = if (isError) MaterialTheme.colorScheme.error else Color.Transparent,
+            unfocusedContainerColor = SoftWhite,
+            focusedContainerColor = SoftWhite,
+            errorContainerColor = PalePink.copy(alpha = 0.4f)
+        ),
+        visualTransformation = visualTransformation,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        singleLine = true,
+        isError = isError,
+        supportingText = { 
+            if (isError && errorText != null) {
+                Text(errorText, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    )
+}
+
+// --- Pantalla de Autenticación Rediseñada ---
+
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AuthScreen(
     navController: NavHostController,
@@ -75,7 +128,7 @@ fun AuthScreen(
     // --- Estados para los campos del formulario ---
     var email by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
-    var rut by remember { mutableStateOf("") } // Este estado guardará solo los dígitos
+    var rut by remember { mutableStateOf("") }
     var nombre by remember { mutableStateOf("") }
     var apellido by remember { mutableStateOf("") }
 
@@ -88,25 +141,15 @@ fun AuthScreen(
 
     // Limpia los campos cuando cambiamos entre Login y Registro
     LaunchedEffect(isLoginScreen) {
-        email = ""
-        contrasena = ""
-        rut = ""
-        nombre = ""
-        apellido = ""
+        email = ""; contrasena = ""; rut = ""; nombre = ""; apellido = "";
         viewModel.clearErrors()
+        emailError = null; contrasenaError = null; rutError = null; nombreError = null; apellidoError = null;
     }
 
     fun validateFields(rutToValidate: String): Boolean {
-        // --- Limpieza automática de espacios ---
-        email = email.trim()
-        nombre = nombre.trim()
-        apellido = apellido.trim()
+        email = email.trim(); nombre = nombre.trim(); apellido = apellido.trim();
 
-        emailError = null
-        contrasenaError = null
-        rutError = null
-        nombreError = null
-        apellidoError = null
+        emailError = null; contrasenaError = null; rutError = null; nombreError = null; apellidoError = null;
         var isValid = true
 
         if (!isLoginScreen) {
@@ -142,9 +185,7 @@ fun AuthScreen(
     LaunchedEffect(uiState.isAuthenticated) {
         if (uiState.isAuthenticated) {
             Toast.makeText(context, "¡Bienvenido, ${uiState.currentUser?.nombre}!", Toast.LENGTH_SHORT).show()
-            navController.navigate(Routes.HOME) {
-                popUpTo(navController.graph.startDestinationId) { inclusive = true }
-            }
+            navController.navigate(Routes.HOME) { popUpTo(navController.graph.startDestinationId) { inclusive = true } }
         }
     }
 
@@ -152,8 +193,8 @@ fun AuthScreen(
     LaunchedEffect(uiState.registrationSuccess) {
         if (uiState.registrationSuccess) {
             Toast.makeText(context, "¡Registro exitoso! Por favor, inicia sesión.", Toast.LENGTH_LONG).show()
-            isLoginScreen = true // Cambia a la pantalla de login
-            viewModel.resetRegistrationSuccess() // Resetea el estado
+            isLoginScreen = true
+            viewModel.resetRegistrationSuccess()
         }
     }
 
@@ -165,142 +206,124 @@ fun AuthScreen(
         }
     }
 
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = MaterialTheme.colorScheme.primary,
-        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-        cursorColor = MaterialTheme.colorScheme.primary,
-        focusedLabelColor = MaterialTheme.colorScheme.primary,
-        unfocusedLabelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-    )
-
-    Box(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp),
-        contentAlignment = Alignment.Center
+    // --- UI Rediseñada ---
+    Column(
+        modifier = Modifier.fillMaxSize()
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("SaveUp Lite", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+        // Parte superior con color e ilustración
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.3f)
+                .background(PaleAqua),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.auth_background),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)),
+                contentScale = ContentScale.Crop,
+                alpha = 0.2f // Se aplica transparencia a la imagen
+            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Hola!", style = MaterialTheme.typography.titleLarge, color = DarkGrayText, fontWeight = FontWeight.Bold)
+                Text("Bienvenido a", style = MaterialTheme.typography.bodyLarge, color = DarkGrayText.copy(alpha = 0.8f))
+                Text("SaveUp", style = MaterialTheme.typography.displayMedium, color = DarkGrayText, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+
+        // Tarjeta del formulario
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                .background(Color.White)
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = if (isLoginScreen) "Login" else "Sign Up",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = DarkGrayText
+            )
             Spacer(Modifier.height(24.dp))
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MediumBlue),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
-                    Text(
-                        text = if (isLoginScreen) "Inicio de Sesión" else "Crea tu Cuenta",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(Modifier.height(24.dp))
+            // --- FORMULARIO ---
+            if (!isLoginScreen) {
+                AuthTextField(rut, { rut = it; rutError = null }, "RUT", Icons.Outlined.Person, isError = rutError != null, errorText = rutError, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down)}), visualTransformation = RutVisualTransformation())
+                Spacer(Modifier.height(16.dp))
+                AuthTextField(nombre, { nombre = it; nombreError = null }, "Nombre", Icons.Outlined.Person, isError = nombreError != null, errorText = nombreError, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down)}))
+                Spacer(Modifier.height(16.dp))
+                AuthTextField(apellido, { apellido = it; apellidoError = null }, "Apellido", Icons.Outlined.Person, isError = apellidoError != null, errorText = apellidoError, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down)}))
+                Spacer(Modifier.height(16.dp))
+            }
 
-                    if (!isLoginScreen) {
-                        OutlinedTextField(
-                            value = rut,
-                            onValueChange = { newText ->
-                                val cleaned = newText.filter { it.isDigit() || it.equals('k', ignoreCase = true) }
-                                if (cleaned.length <= 9) {
-                                    rut = cleaned
-                                }
-                                rutError = null
-                            },
-                            label = { Text("RUT") },
-                            visualTransformation = RutVisualTransformation(),
-                            isError = rutError != null,
-                            supportingText = { rutError?.let { Text(it) } },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                            colors = textFieldColors
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = nombre,
-                            onValueChange = { nombre = it; nombreError = null },
-                            label = { Text("Nombre") },
-                            isError = nombreError != null,
-                            supportingText = { nombreError?.let { Text(it) } },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                            colors = textFieldColors
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = apellido,
-                            onValueChange = { apellido = it; apellidoError = null },
-                            label = { Text("Apellido") },
-                            isError = apellidoError != null,
-                            supportingText = { apellidoError?.let { Text(it) } },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                            colors = textFieldColors
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it; emailError = null },
-                        label = { Text("Email") },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                        isError = emailError != null,
-                        supportingText = { emailError?.let { Text(it) } },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = textFieldColors
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = contrasena,
-                        onValueChange = { contrasena = it; contrasenaError = null },
-                        label = { Text("Contraseña") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
-                        isError = contrasenaError != null,
-                        supportingText = { contrasenaError?.let { Text(it) } },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = textFieldColors
-                    )
-                    Spacer(Modifier.height(24.dp))
+            AuthTextField(email, { email = it; emailError = null }, "Email", Icons.Outlined.Email, isError = emailError != null, errorText = emailError, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down)}))
+            Spacer(Modifier.height(16.dp))
+            AuthTextField(contrasena, { contrasena = it; contrasenaError = null }, "Contraseña", Icons.Outlined.Lock, isError = contrasenaError != null, errorText = contrasenaError, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }), visualTransformation = PasswordVisualTransformation())
+            Spacer(Modifier.height(12.dp))
 
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
-                    } else {
-                        Button(
-                            onClick = {
-                                keyboardController?.hide()
-                                val rutToValidate = if (rut.length > 1) "${rut.dropLast(1)}-${rut.last().uppercaseChar()}" else rut
-                                if (validateFields(rutToValidate)) {
-                                    if (isLoginScreen) {
-                                        viewModel.login(email, contrasena)
-                                    } else {
-                                        viewModel.register(rutToValidate, nombre, apellido, email, contrasena)
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(if (isLoginScreen) "Iniciar Sesión" else "Registrarme")
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    TextButton(onClick = { isLoginScreen = !isLoginScreen }) {
-                        Text(if (isLoginScreen) "¿No tienes cuenta? Regístrate" else "Ya tengo una cuenta")
-                    }
+            if (isLoginScreen) {
+                TextButton(onClick = { /* TODO */ }, modifier = Modifier.align(Alignment.End)) {
+                    Text("Olvidé mi contraseña", color = LavenderBlue, fontWeight = FontWeight.Medium)
                 }
             }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Botón principal
+            Button(
+                onClick = { 
+                    keyboardController?.hide()
+                    val rutToValidate = if (rut.length > 1) "${rut.dropLast(1)}-${rut.last().uppercaseChar()}" else rut
+                    if (validateFields(rutToValidate)) {
+                        if (isLoginScreen) {
+                            viewModel.login(email, contrasena)
+                        } else {
+                            viewModel.register(rutToValidate, nombre, apellido, email, contrasena)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = LavenderBlue)
+            ) {
+                Text(if (isLoginScreen) "Login" else "Crear Cuenta", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+
+            /* --- Logins sociales (Visual) ---
+            Spacer(Modifier.height(24.dp))
+            Text("O inicia sesión con", color = MediumGrayText, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Estos son solo visuales, no tienen acción
+                OutlinedButton(onClick = { }, shape = RoundedCornerShape(12.dp), modifier = Modifier.size(52.dp), contentPadding = PaddingValues(0.dp)) { Icon(painterResource(id = R.drawable.ic_google), null, tint = Color.Unspecified) }
+                Spacer(Modifier.width(20.dp))
+                OutlinedButton(onClick = { }, shape = RoundedCornerShape(12.dp), modifier = Modifier.size(52.dp), contentPadding = PaddingValues(0.dp)) { Icon(painterResource(id = R.drawable.ic_facebook), null,  tint = Color.Unspecified) }
+                Spacer(Modifier.width(20.dp))
+                OutlinedButton(onClick = { }, shape = RoundedCornerShape(12.dp), modifier = Modifier.size(52.dp), contentPadding = PaddingValues(0.dp)) { Icon(painterResource(id = R.drawable.ic_apple), null, tint = Color.Unspecified) }
+            }*/
+
+            Spacer(Modifier.weight(1f))
+
+            // Link para cambiar entre Login / Registro
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (isLoginScreen) "¿No tienes cuenta?" else "¿Ya tienes una cuenta?", color = MediumGrayText)
+                TextButton(onClick = { isLoginScreen = !isLoginScreen }) {
+                    Text(if (isLoginScreen) "Regístrate" else "Inicia Sesión", color = LavenderBlue, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(8.dp)) // Añadido para subir ligeramente el link
         }
     }
 }
