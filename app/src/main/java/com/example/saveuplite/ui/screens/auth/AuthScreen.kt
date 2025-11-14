@@ -5,17 +5,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,7 +29,37 @@ import androidx.navigation.NavHostController
 import com.example.saveuplite.ui.navigation.Routes
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+// --- Transformación visual para el RUT ---
+private class RutVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val trimmed = if (text.text.length >= 9) text.text.substring(0..8) else text.text
+        var out = ""
+        for (i in trimmed.indices) {
+            out += trimmed[i]
+            if (i == trimmed.length - 2) {
+                out += "-"
+            }
+        }
+
+        val rutOffsetTranslator = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                if (offset >= trimmed.length - 1 && trimmed.length > 1) return offset + 1
+                return offset
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                if (offset >= out.length) return trimmed.length
+                if (out[offset] == '-') return offset - 1
+                if (offset > trimmed.length - 1 && trimmed.length > 1) return offset - 1
+                return offset
+            }
+        }
+
+        return TransformedText(AnnotatedString(out), rutOffsetTranslator)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun AuthScreen(
     navController: NavHostController,
@@ -32,13 +67,15 @@ fun AuthScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     var isLoginScreen by remember { mutableStateOf(true) }
 
     // --- Estados para los campos del formulario ---
     var email by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
-    var rut by remember { mutableStateOf("") }
+    var rut by remember { mutableStateOf("") } // Este estado guardará solo los dígitos
     var nombre by remember { mutableStateOf("") }
     var apellido by remember { mutableStateOf("") }
 
@@ -59,7 +96,12 @@ fun AuthScreen(
         viewModel.clearErrors()
     }
 
-    fun validateFields(): Boolean {
+    fun validateFields(rutToValidate: String): Boolean {
+        // --- Limpieza automática de espacios ---
+        email = email.trim()
+        nombre = nombre.trim()
+        apellido = apellido.trim()
+
         emailError = null
         contrasenaError = null
         rutError = null
@@ -77,8 +119,8 @@ fun AuthScreen(
                 isValid = false
             }
             val rutRegex = "^\\d{7,8}-[\\dkK]{1}$".toRegex()
-            if (!rut.matches(rutRegex)) {
-                rutError = "Formato de RUT inválido (ej: 12345678-9)"
+            if (!rutToValidate.matches(rutRegex)) {
+                rutError = "Formato de RUT inválido (ej: 12.345.678-9)"
                 isValid = false
             }
         }
@@ -140,7 +182,7 @@ fun AuthScreen(
             ) {
                 Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
                     Text(
-                        text = if (isLoginScreen) "Bienvenido de Nuevo" else "Crea tu Cuenta",
+                        text = if (isLoginScreen) "Inicio de Sesión" else "Crea tu Cuenta",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.fillMaxWidth(),
@@ -149,16 +191,75 @@ fun AuthScreen(
                     Spacer(Modifier.height(24.dp))
 
                     if (!isLoginScreen) {
-                        OutlinedTextField(value = rut, onValueChange = { rut = it; rutError = null }, label = { Text("RUT") }, isError = rutError != null, supportingText = { rutError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(
+                            value = rut,
+                            onValueChange = { newText ->
+                                val cleaned = newText.filter { it.isDigit() || it.equals('k', ignoreCase = true) }
+                                if (cleaned.length <= 9) {
+                                    rut = cleaned
+                                }
+                                rutError = null
+                            },
+                            label = { Text("RUT") },
+                            visualTransformation = RutVisualTransformation(),
+                            isError = rutError != null,
+                            supportingText = { rutError?.let { Text(it) } },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                        )
                         Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(value = nombre, onValueChange = { nombre = it; nombreError = null }, label = { Text("Nombre") }, isError = nombreError != null, supportingText = { nombreError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(
+                            value = nombre,
+                            onValueChange = { nombre = it; nombreError = null },
+                            label = { Text("Nombre") },
+                            isError = nombreError != null,
+                            supportingText = { nombreError?.let { Text(it) } },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                        )
                         Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(value = apellido, onValueChange = { apellido = it; apellidoError = null }, label = { Text("Apellido") }, isError = apellidoError != null, supportingText = { apellidoError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(
+                            value = apellido,
+                            onValueChange = { apellido = it; apellidoError = null },
+                            label = { Text("Apellido") },
+                            isError = apellidoError != null,
+                            supportingText = { apellidoError?.let { Text(it) } },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                        )
                         Spacer(Modifier.height(8.dp))
                     }
-                    OutlinedTextField(value = email, onValueChange = { email = it; emailError = null }, label = { Text("Email") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), isError = emailError != null, supportingText = { emailError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it; emailError = null },
+                        label = { Text("Email") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                        isError = emailError != null,
+                        supportingText = { emailError?.let { Text(it) } },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = contrasena, onValueChange = { contrasena = it; contrasenaError = null }, label = { Text("Contraseña") }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), isError = contrasenaError != null, supportingText = { contrasenaError?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = contrasena,
+                        onValueChange = { contrasena = it; contrasenaError = null },
+                        label = { Text("Contraseña") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+                        isError = contrasenaError != null,
+                        supportingText = { contrasenaError?.let { Text(it) } },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Spacer(Modifier.height(24.dp))
 
                     if (uiState.isLoading) {
@@ -166,11 +267,13 @@ fun AuthScreen(
                     } else {
                         Button(
                             onClick = {
-                                if (validateFields()) {
+                                keyboardController?.hide()
+                                val rutToValidate = if (rut.length > 1) "${rut.dropLast(1)}-${rut.last().uppercaseChar()}" else rut
+                                if (validateFields(rutToValidate)) {
                                     if (isLoginScreen) {
                                         viewModel.login(email, contrasena)
                                     } else {
-                                        viewModel.register(rut, nombre, apellido, email, contrasena)
+                                        viewModel.register(rutToValidate, nombre, apellido, email, contrasena)
                                     }
                                 }
                             },
