@@ -21,10 +21,9 @@ Se mantiene la consistencia en la paleta de colores, tipografía e iconografía.
 
 ## 3. Estructura de Navegación y Pantallas
 
-- **Barra de Navegación Inferior:** Implementada en `DashboardScreen.kt`, contiene las secciones: **Inicio**, **Deudas**, **Metas** y **Mercado**. Utiliza un estilo "Soft UI" con efecto de extrusión.
-- **`AuthScreen.kt`:** Pantalla de autenticación con diseño de dos tonos.
-- **`DashboardScreen.kt`:** Pantalla principal que aloja la navegación y las funciones primordiales de "Ingreso" y "Gasto".
-- **`NavGraph.kt`:** Contiene todas las rutas de navegación, incluyendo marcadores de posición para las pantallas futuras.
+- **Barra de Navegación Inferior:** Implementada en `DashboardScreen.kt`, contiene las secciones: **Inicio**, **Deudas**, **Metas** y **Mercado**.
+- **Barra Lateral (Drawer):** Accesible desde el `Dashboard`, contiene el perfil del usuario y el acceso a funcionalidades secundarias como el **Conversor de Moneda** y el cierre de sesión.
+- **`NavGraph.kt`:** Contiene todas las rutas de navegación, incluyendo las pantallas implementadas y marcadores de posición para las futuras.
 
 ---
 
@@ -32,26 +31,25 @@ Se mantiene la consistencia en la paleta de colores, tipografía e iconografía.
 
 ### 6.1. API de Indicadores Económicos (mindicador.cl)
 
-Se ha implementado una nueva funcionalidad para consumir y mostrar indicadores económicos relevantes para el mercado chileno.
+Se ha implementado una funcionalidad para mostrar indicadores económicos chilenos.
+
+- **Capas de Datos, Lógica y Presentación:** Se crearon DTOs, un `MindicadorApiService`, un `MindicadorRetrofitClient`, un `MarketViewModel` y la pantalla `MarketScreen.kt`.
+- **Acceso:** A través del ítem "Mercado" en la barra de navegación inferior.
+
+### 6.2. API de Conversión de Monedas (frankfurter.app)
+
+Se ha implementado un conversor de monedas global.
 
 **Arquitectura Implementada:**
 
 - **Capa de Datos (`/api` y `/model/dto`):**
-    - **`IndicadorEconomicoDTO.kt`:** Modelo para un indicador individual (dólar, UF, etc.).
-    - **`IndicadoresResponseDTO.kt`:** Modelo para la respuesta JSON completa de la API.
-    - **`MindicadorApiService.kt`:** Nueva interfaz de Retrofit exclusiva para esta API, con el método `getIndicadoresEconomicos()`.
-    - **`MindicadorRetrofitClient.kt`:** Nuevo cliente de Retrofit configurado con la URL base `https://mindicador.cl/` y un `GsonConverterFactory` para parsear las fechas.
+    - **`ConversionResponseDTO.kt`:** Modelo para la respuesta de la conversión.
+    - **`FrankfurterApiService.kt`:** Interfaz de Retrofit con los endpoints `getCurrencies` y `getLatestConversion`.
+    - **`FrankfurterRetrofitClient.kt`:** Cliente de Retrofit configurado con la URL base `https://api.frankfurter.app/`.
 
 - **Capa de Lógica (`/viewmodel`):**
-    - **`MarketViewModel.kt`:** Nuevo ViewModel que se encarga de:
-        - Llamar al `MindicadorApiService`.
-        - Gestionar el estado de la UI (`MarketUiState`) con los estados de carga, éxito (lista de indicadores) y error.
-        - Exponer los datos a la UI a través de un `StateFlow`.
+    - **`ConverterViewModel.kt`:** Nuevo ViewModel que gestiona la carga de la lista de monedas, el estado de la UI (`ConverterUiState`) y la lógica para realizar las conversiones.
 
 - **Capa de Presentación (`/ui/screens`):**
-    - **`MarketScreen.kt`:** Nueva pantalla que:
-        - Observa el estado del `MarketViewModel`.
-        - Muestra un `CircularProgressIndicator` durante la carga.
-        - Presenta la lista de indicadores en una `LazyColumn` usando un componente `IndicadorCard` estilizado.
-        - Muestra mensajes de error si la carga falla.
-    - **Actualización en `NavGraph.kt`:** Se ha reemplazado el `PlaceholderScreen` de la ruta `MARKET` por el nuevo `MarketScreen`.
+    - **`ConverterScreen.kt`:** Nueva pantalla con campos de texto y menús desplegables para la interacción del usuario. Muestra el resultado en una tarjeta destacada.
+    - **Acceso a la Pantalla:** Se ha añadido un nuevo ítem, "Conversor de Moneda", en la barra lateral desplegable (`DrawerContent`) para navegar a esta funcionalidad.

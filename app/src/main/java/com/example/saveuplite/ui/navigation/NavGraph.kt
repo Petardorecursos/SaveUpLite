@@ -12,17 +12,16 @@ import androidx.navigation.NavHostController
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
 import com.example.saveuplite.ui.screens.auth.AuthScreen
+import com.example.saveuplite.ui.screens.converter.ConverterScreen
 import com.example.saveuplite.ui.screens.dashboard.DashboardScreen
 import com.example.saveuplite.ui.screens.history.TransactionHistoryScreen
 import com.example.saveuplite.ui.screens.home.HomeScreen
 import com.example.saveuplite.ui.screens.form.FormScreen
 import com.example.saveuplite.ui.screens.list.ListScreen
-import com.example.saveuplite.ui.screens.market.MarketScreen // <- ¡NUEVA IMPORTACIÓN!
+import com.example.saveuplite.ui.screens.market.MarketScreen
 import com.example.saveuplite.ui.screens.nativeView.LocationScreen
 import com.example.saveuplite.ui.screens.nativeView.NotificationScreen
-
 import com.example.saveuplite.viewmodel.LocationViewModel
-
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 
 object Routes {
@@ -34,6 +33,7 @@ object Routes {
     const val DEBTS = "debts"
     const val GOALS = "goals"
     const val MARKET = "market"
+    const val CONVERTER = "converter" // <-- NUEVA RUTA
 
     // --- Rutas Legacy ---
     const val LEGACY_HOME = "legacyhome"
@@ -60,7 +60,8 @@ fun AppNavHost(navController: NavHostController) {
         // --- Pantallas Nuevas ---
         composable(Routes.DEBTS) { PlaceholderScreen(screenName = "Deudas") }
         composable(Routes.GOALS) { PlaceholderScreen(screenName = "Metas de Ahorro") }
-        composable(Routes.MARKET) { MarketScreen(navController = navController) } // <- ¡PANTALLA REAL IMPLEMENTADA!
+        composable(Routes.MARKET) { MarketScreen(navController = navController) }
+        composable(Routes.CONVERTER) { ConverterScreen(navController = navController) } // <-- NUEVO COMPOSABLE
 
         // --- Rutas de funciones adicionales (Legacy) ---
         composable(Routes.LEGACY_HOME) { HomeScreen(navController, usuarioViewModel) }

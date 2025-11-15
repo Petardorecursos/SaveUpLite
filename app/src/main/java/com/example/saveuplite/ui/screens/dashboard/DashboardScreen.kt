@@ -209,7 +209,8 @@ private fun DrawerContent(navController: NavHostController, usuarioViewModel: Us
             Text(text = usuarioState.currentUser?.nombre ?: "Invitado", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Text(text = usuarioState.currentUser?.email ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(32.dp))
-            NavigationDrawerItem(icon = { Icon(Icons.Default.Info, null) }, label = { Text("Funciones Legacy") }, selected = false, onClick = { navController.navigate(Routes.LEGACY_HOME) }, shape = RoundedCornerShape(12.dp))
+            NavigationDrawerItem(icon = { Icon(Icons.Default.Calculate, null) }, label = { Text("Conversor de Moneda") }, selected = false, onClick = { navController.navigate(Routes.CONVERTER); onCloseDrawer() }, shape = RoundedCornerShape(12.dp))
+            NavigationDrawerItem(icon = { Icon(Icons.Default.Info, null) }, label = { Text("Funciones Legacy") }, selected = false, onClick = { navController.navigate(Routes.LEGACY_HOME); onCloseDrawer() }, shape = RoundedCornerShape(12.dp))
             Spacer(Modifier.weight(1f))
             Button(
                 onClick = { usuarioViewModel.logout(); navController.navigate(Routes.AUTH) { popUpTo(navController.graph.startDestinationId) { inclusive = true } } },
@@ -267,7 +268,7 @@ fun BalanceCard(saldoActual: Double) {
         Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.Start) {
             Text("Saldo Actual", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = formatToCLP(saldoActual), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+            Text(text = formatToCLP(saldoActual, false), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -310,7 +311,7 @@ fun TransactionHistory(historial: List<MovimientoResponseDTO>, onNavigateToHisto
 fun TransactionItem(item: MovimientoResponseDTO) {
     val isIncome = item.monto > 0
     val amountColor = if (isIncome) DesaturatedPurple else DarkGrayText
-    val formattedAmount = formatToCLP(item.monto)
+    val formattedAmount = formatToCLP(item.monto, true)
 
     val dateFormat = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
 
@@ -366,11 +367,13 @@ private fun ImageSourceDialog(onDismiss: () -> Unit, onCameraClick: () -> Unit, 
 }
 
 @Composable
-private fun formatToCLP(amount: Double): String {
+private fun formatToCLP(amount: Double, withSign: Boolean): String {
     val format = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
     format.maximumFractionDigits = 0
-    if (amount > 0) {
-        return "+ " + format.format(amount).replace(",", ".")
+    val formattedText = format.format(amount).replace(",", ".")
+
+    if (withSign && amount > 0) {
+        return "+ $formattedText"
     }
-    return format.format(amount).replace(",", ".")
+    return formattedText
 }
