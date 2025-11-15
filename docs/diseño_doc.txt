@@ -1,63 +1,57 @@
 # Documentación de Diseño: Rework Visual de SaveUp Lite
 
-Este documento detalla el rediseño visual de la aplicación implementado para adoptar un estilo moderno, limpio y cohesivo.
+Este documento detalla el rediseño visual y las implementaciones de funcionalidades en la aplicación.
 
 ## 1. Filosofía de Diseño
 
-El estilo visual se divide en dos enfoques principales para crear una experiencia de usuario rica y contextual:
+El estilo visual se divide en dos enfoques principales:
+- **Diseño Limpio y Moderno (Autenticación):** Utiliza una estructura de dos tonos con un encabezado de color y una tarjeta de formulario limpia.
+- **Soft UI (Dashboard y Pantallas Interiores):** Utiliza tarjetas de colores suaves, elevaciones sutiles y una barra de navegación inferior flotante con efecto "extruido".
 
-- **Diseño Limpio y Moderno (Pantalla de Autenticación):** Inspirado en diseños contemporáneos, esta pantalla utiliza una estructura de dos tonos con un encabezado de color y una tarjeta de formulario limpia que se desliza desde abajo. El objetivo es ser amigable, directo y visualmente atractivo para el primer contacto del usuario.
-
-- **Soft UI (Dashboard y Pantallas Interiores):** Una vez dentro de la aplicación, la interfaz cambia a un estilo "Soft UI" o "Neumorfismo-lite". Se utilizan tarjetas de colores suaves con elevaciones y esquinas redondeadas para presentar datos de forma clara y tranquila.
-
-- **Consistencia:** A pesar de los dos enfoques, se mantiene la misma paleta de colores, tipografía e iconografía en toda la aplicación para garantizar una experiencia unificada.
+Se mantiene la consistencia en la paleta de colores, tipografía e iconografía.
 
 ---
 
-## 2. Paleta de Colores
+## 2. Paleta de Colores y Tipografía
 
-Se implementó una paleta de colores natural y cálida, definida en `app/src/main/java/com/example/saveuplite/ui/theme/Color.kt`.
-
-- **Fondo Principal:** `SoftWhite` (#F8F8FA) y `Color.White` para las tarjetas de formulario.
-- **Acento Primario:** `LavenderBlue` (#7E8CE7) - Usado para botones principales y elementos interactivos.
-- **Acentos Secundarios:**
-    - `PaleAqua` (#E0F5F2): Usado para el encabezado en la pantalla de autenticación y botones de "ingreso".
-    - `PalePink` (#F8E7EA): Para acciones de "gasto".
-    - `MediumBlue` (#E1E4F9): Para tarjetas de datos importantes como el saldo.
-- **Colores de Texto:**
-    - `DarkGrayText` (#333333): Para títulos y texto principal.
-    - `MediumGrayText` (#888888) / `LightGrayText` (#A0A0A0): Para subtítulos y placeholders.
+- **Colores:** Definidos en `Color.kt`. La paleta incluye un fondo `SoftWhite`, un acento primario `LavenderBlue` y acentos secundarios como `PaleAqua` y `PalePink`.
+- **Tipografía:** Estandarizada con la fuente **Inter**, configurada en `Type.kt`. (Requiere añadir los archivos de fuente a `res/font`).
 
 ---
 
-## 3. Tipografía
+## 3. Estructura de Navegación y Pantallas
 
-Se ha estandarizado el uso de la familia de fuentes **Inter**. La configuración se encuentra en `app/src/main/java/com/example/saveuplite/ui/theme/Type.kt`.
-
-**ACCIÓN REQUERIDA:** Añadir los archivos de fuente `.ttf` de "Inter" al directorio `app/src/main/res/font`.
-
----
-
-## 4. Iconografía
-
-Se ha estandarizado el uso de íconos de la variante **Outlined** de Material Design para mantener una apariencia visual ligera.
+- **Barra de Navegación Inferior:** Implementada en `DashboardScreen.kt`, contiene las secciones: **Inicio**, **Deudas**, **Metas** y **Mercado**. Utiliza un estilo "Soft UI" con efecto de extrusión.
+- **`AuthScreen.kt`:** Pantalla de autenticación con diseño de dos tonos.
+- **`DashboardScreen.kt`:** Pantalla principal que aloja la navegación y las funciones primordiales de "Ingreso" y "Gasto".
+- **`NavGraph.kt`:** Contiene todas las rutas de navegación, incluyendo marcadores de posición para las pantallas futuras.
 
 ---
 
-## 5. Pantallas y Componentes Modificados
+## 6. Integración de APIs Externas
 
-- **`AuthScreen.kt` (Diseño Limpio y Moderno):**
-    - **Estructura:** Pantalla dividida en dos. Un encabezado superior (30% de la pantalla) con fondo `PaleAqua` y una tarjeta de formulario blanca con esquinas superiores redondeadas que ocupa el resto del espacio.
-    - **Encabezado:** Contiene el saludo y el logo "SaveUp" con una nueva jerarquía visual. Utiliza la imagen `auth_background.jpg` como un patrón sutil y semitransparente.
-    - **Campos de Texto:** Se utiliza un `AuthTextField` personalizado, que es un `OutlinedTextField` estilizado con fondo `SoftWhite` y sin borde en estado de reposo, para un look minimalista.
-    - **Botones Sociales:** Se añadió la estructura visual para botones de inicio de sesión con Google, Facebook y Apple (actualmente comentada en el código para evitar errores de compilación).
+### 6.1. API de Indicadores Económicos (mindicador.cl)
 
-- **`DashboardScreen.kt` (Estilo Soft UI):**
-    - `TopAppBar` transparente.
-    - `BalanceCard` usa el color `MediumBlue`.
-    - `ActionButtons` usan los colores `PaleAqua` y `PalePink`.
-    - `TransactionItem` son tarjetas limpias y redondeadas.
+Se ha implementado una nueva funcionalidad para consumir y mostrar indicadores económicos relevantes para el mercado chileno.
 
-- **`TransactionHistoryScreen.kt` (Estilo Soft UI):**
-    - Mantiene la consistencia con el Dashboard, usando fondo `SoftWhite` y `TopAppBar` transparente.
-    - Reutiliza el `TransactionItem` para coherencia visual.
+**Arquitectura Implementada:**
+
+- **Capa de Datos (`/api` y `/model/dto`):**
+    - **`IndicadorEconomicoDTO.kt`:** Modelo para un indicador individual (dólar, UF, etc.).
+    - **`IndicadoresResponseDTO.kt`:** Modelo para la respuesta JSON completa de la API.
+    - **`MindicadorApiService.kt`:** Nueva interfaz de Retrofit exclusiva para esta API, con el método `getIndicadoresEconomicos()`.
+    - **`MindicadorRetrofitClient.kt`:** Nuevo cliente de Retrofit configurado con la URL base `https://mindicador.cl/` y un `GsonConverterFactory` para parsear las fechas.
+
+- **Capa de Lógica (`/viewmodel`):**
+    - **`MarketViewModel.kt`:** Nuevo ViewModel que se encarga de:
+        - Llamar al `MindicadorApiService`.
+        - Gestionar el estado de la UI (`MarketUiState`) con los estados de carga, éxito (lista de indicadores) y error.
+        - Exponer los datos a la UI a través de un `StateFlow`.
+
+- **Capa de Presentación (`/ui/screens`):**
+    - **`MarketScreen.kt`:** Nueva pantalla que:
+        - Observa el estado del `MarketViewModel`.
+        - Muestra un `CircularProgressIndicator` durante la carga.
+        - Presenta la lista de indicadores en una `LazyColumn` usando un componente `IndicadorCard` estilizado.
+        - Muestra mensajes de error si la carga falla.
+    - **Actualización en `NavGraph.kt`:** Se ha reemplazado el `PlaceholderScreen` de la ruta `MARKET` por el nuevo `MarketScreen`.
