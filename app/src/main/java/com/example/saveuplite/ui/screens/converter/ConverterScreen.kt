@@ -1,6 +1,6 @@
 package com.example.saveuplite.ui.screens.converter
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,13 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.saveuplite.ui.theme.LavenderBlue
-import com.example.saveuplite.ui.theme.MediumBlue
 import com.example.saveuplite.ui.theme.SoftWhite
 import com.example.saveuplite.viewmodel.ConverterViewModel
 import java.text.NumberFormat
@@ -52,7 +49,7 @@ fun ConverterScreen(navController: NavController) {
                     .fillMaxSize()
                     .padding(padding)
                     .padding(16.dp)
-                    .verticalScroll(rememberScrollState()), // <-- Scroll para toda la pantalla
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Campo de Monto
@@ -69,50 +66,57 @@ fun ConverterScreen(navController: NavController) {
                 // Dropdowns de Monedas
                 CurrencyDropdown(label = "De", selectedCurrency = uiState.fromCurrency, currencies = uiState.currencies) { viewModel.onFromCurrencyChange(it) }
                 Spacer(Modifier.height(12.dp))
-                IconButton(onClick = { /* TODO: Implementar swap */ }) { Icon(Icons.Default.SwapVert, contentDescription = "Intercambiar monedas") }
+                IconButton(onClick = { viewModel.swapCurrencies() }) { Icon(Icons.Default.SwapVert, contentDescription = "Intercambiar monedas") }
                 Spacer(Modifier.height(12.dp))
                 CurrencyDropdown(label = "A", selectedCurrency = uiState.toCurrency, currencies = uiState.currencies) { viewModel.onToCurrencyChange(it) }
                 Spacer(Modifier.height(24.dp))
 
-                // Botón de Conversión
-                Button(
-                    onClick = { viewModel.performConversion() },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    enabled = !uiState.isLoading,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LavenderBlue)
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
-                    } else {
-                        Text("Convertir", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                // Área de Resultado con animación y estado de carga
+                AnimatedContent(
+                    targetState = uiState.isLoading,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) { isLoading ->
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.padding(vertical = 40.dp))
+                    } else if (uiState.conversionResult != null) {
+                        ResultCard(uiState.conversionResult, uiState.toCurrency)
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
-
-                // Área de Resultado
-                if (uiState.conversionResult != null) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MediumBlue)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("Resultado", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text = formatCurrency(uiState.conversionResult ?: 0.0, uiState.toCurrency),
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
+                 if (uiState.errorMessage != null) {
+                    Text(
+                        text = uiState.errorMessage!!,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ResultCard(result: Double?, toCurrency: String) {
+    if (result == null) return
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = LavenderBlue) // ¡SOLUCIÓN! Color de fondo actualizado
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Resultado", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = formatCurrency(result, toCurrency),
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
         }
     }
 }
@@ -126,10 +130,11 @@ private fun CurrencyDropdown(
     onCurrencySelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val currencyDisplayName = currencies[selectedCurrency] ?: selectedCurrency
 
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
         OutlinedTextField(
-            value = "${currencies[selectedCurrency] ?: selectedCurrency} ($selectedCurrency)",
+            value = "$currencyDisplayName ($selectedCurrency)",
             onValueChange = {}, // No se puede cambiar directamente
             readOnly = true,
             label = { Text(label) },
@@ -139,16 +144,17 @@ private fun CurrencyDropdown(
             colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = SoftWhite, focusedContainerColor = SoftWhite)
         )
         ExposedDropdownMenu(
-            expanded = expanded, 
+            expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.heightIn(max = 250.dp) // <-- ¡SOLUCIÓN: MENÚ DESLIZABLE!
+            modifier = Modifier.heightIn(max = 250.dp)
         ) {
             currencies.keys.sorted().forEach { currencyCode ->
                 DropdownMenuItem(
                     text = { 
                         Text(
                             text = "${currencies[currencyCode]} ($currencyCode)",
-                            color = if (currencyCode == selectedCurrency) LavenderBlue else Color.Unspecified
+                            color = if (currencyCode == selectedCurrency) LavenderBlue else Color.Unspecified,
+                            fontWeight = if (currencyCode == selectedCurrency) FontWeight.Bold else FontWeight.Normal
                         )
                      },
                     onClick = {
@@ -162,13 +168,14 @@ private fun CurrencyDropdown(
 }
 
 private fun formatCurrency(amount: Double, currencyCode: String): String {
-    val format = NumberFormat.getCurrencyInstance().apply {
-        maximumFractionDigits = 2
-        try {
+    return try {
+        val format = NumberFormat.getCurrencyInstance().apply {
+            maximumFractionDigits = 2
             currency = java.util.Currency.getInstance(currencyCode)
-        } catch (e: Exception) {
-            currency = java.util.Currency.getInstance(Locale.US) // Fallback
         }
+        format.format(amount)
+    } catch (e: Exception) {
+        // Fallback para códigos de moneda no estándar (como criptomonedas)
+        "$amount $currencyCode"
     }
-    return format.format(amount)
 }

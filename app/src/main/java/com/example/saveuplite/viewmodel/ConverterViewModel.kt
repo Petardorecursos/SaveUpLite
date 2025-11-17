@@ -3,6 +3,8 @@ package com.example.saveuplite.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.saveuplite.api.FrankfurterRetrofitClient
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,12 +32,14 @@ class ConverterViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ConverterUiState())
     val uiState: StateFlow<ConverterUiState> = _uiState.asStateFlow()
 
+    private var conversionJob: Job? = null
+
     init {
         loadCurrencies()
     }
 
     /**
-     * Carga la lista de monedas disponibles desde la API.
+     * Carga la lista de monedas disponibles y establece el estado inicial para la conversión.
      */
     private fun loadCurrencies() {
         _uiState.value = _uiState.value.copy(isLoadingCurrencies = true)
@@ -43,8 +47,19 @@ class ConverterViewModel : ViewModel() {
             try {
                 val response = FrankfurterRetrofitClient.instance.getCurrencies()
                 if (response.isSuccessful && response.body() != null) {
-                    _uiState.value = _uiState.value.copy(currencies = response.body()!!, isLoadingCurrencies = false)
-                    // Realiza una conversión inicial al cargar las monedas
+                    val currencies = response.body()!!.toMutableMap()
+                    // Asegurar que las monedas por defecto siempre existan en la lista
+                    currencies.putIfAbsent("USD", "United States Dollar")
+                    currencies.putIfAbsent("CLP", "Chilean Peso")
+
+                    // Establecer explícitamente el estado con las monedas y la selección por defecto
+                    _uiState.value = _uiState.value.copy(
+                        currencies = currencies,
+                        fromCurrency = "USD",
+                        toCurrency = "CLP",
+                        isLoadingCurrencies = false
+                    )
+                    // Realizar la conversión inicial con el estado ya garantizado
                     performConversion()
                 } else {
                     _uiState.value = _uiState.value.copy(errorMessage = "Error al cargar las monedas.", isLoadingCurrencies = false)
@@ -58,18 +73,21 @@ class ConverterViewModel : ViewModel() {
     /**
      * Realiza la conversión de moneda utilizando los valores actuales del estado.
      */
-    fun performConversion() {
-        // ¡SOLUCIÓN! Reemplaza la coma por un punto para asegurar la conversión a Double.
+    private fun performConversion() {
+        conversionJob?.cancel()
+
         val sanitizedAmount = _uiState.value.amount.replace(',', '.')
         val amountToConvert = sanitizedAmount.toDoubleOrNull()
 
-        if (amountToConvert == null || amountToConvert == 0.0) {
-            _uiState.value = _uiState.value.copy(conversionResult = 0.0)
+        if (amountToConvert == null || amountToConvert <= 0.0) {
+            _uiState.value = _uiState.value.copy(conversionResult = null)
             return
         }
 
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-        viewModelScope.launch {
+        
+        conversionJob = viewModelScope.launch {
+            delay(300) 
             try {
                 val response = FrankfurterRetrofitClient.instance.getLatestConversion(
                     amount = amountToConvert,
@@ -91,15 +109,28 @@ class ConverterViewModel : ViewModel() {
     // --- Funciones para actualizar el estado desde la UI ---
 
     fun onAmountChange(newAmount: String) {
-        _uiState.value = _uiState.value.copy(amount = newAmount)
+        val regex = "^[0-9]*[.,]?[0-9]*$".toRegex()
+        if (regex.matches(newAmount)) {
+            _uiState.value = _uiState.value.copy(amount = newAmount)
+            performConversion()
+        }
     }
 
     fun onFromCurrencyChange(newCurrency: String) {
         _uiState.value = _uiState.value.copy(fromCurrency = newCurrency)
+        performConversion()
     }
 
     fun onToCurrencyChange(newCurrency: String) {
         _uiState.value = _uiState.value.copy(toCurrency = newCurrency)
+        performConversion()
+    }
+
+    fun swapCurrencies() {
+        val currentFrom = _uiState.value.fromCurrency
+        val currentTo = _uiState.value.toCurrency
+        _uiState.value = _uiState.value.copy(fromCurrency = currentTo, toCurrency = currentFrom)
+        performConversion()
     }
 
     fun clearError() {

@@ -66,3 +66,39 @@ Este documento describe la arquitectura del backend y los endpoints REST para la
 ## **Próximos Pasos (Fase 3 - Pendiente)**
 
 El siguiente gran paso es implementar las funcionalidades de **Deudas y Metas de Ahorro**, siguiendo el `metodo_arquitectonico.txt` que ya hemos definido.
+
+---
+## 6. Integración de APIs Externas
+
+### 6.1. API de Indicadores Económicos (mindicador.cl)
+
+Se ha implementado una funcionalidad para mostrar indicadores económicos chilenos.
+
+- **Capas de Datos, Lógica y Presentación:** Se crearon DTOs, un `MindicadorApiService`, un `MindicadorRetrofitClient`, un `MarketViewModel` y la pantalla `MarketScreen.kt`.
+- **Acceso:** A través del ítem "Mercado" en la barra de navegación inferior.
+
+### 6.2. API de Conversión de Monedas (frankfurter.app)
+
+Se ha implementado un conversor de monedas global.
+
+**Arquitectura Implementada:**
+
+- **Capa de Datos (`/api` y `/model/dto`):**
+    - **`ConversionResponseDTO.kt`:** Modelo para la respuesta de la conversión.
+    - **`FrankfurterApiService.kt`:** Interfaz de Retrofit con los endpoints `getCurrencies` y `getLatestConversion`.
+    - **`FrankfurterRetrofitClient.kt`:** Cliente de Retrofit configurado con la URL base `https://api.frankfurter.app/`.
+
+- **Capa de Lógica (`/viewmodel`):**
+    - **`ConverterViewModel.kt`:** Nuevo ViewModel que gestiona la carga de la lista de monedas, el estado de la UI (`ConverterUiState`) y la lógica para realizar las conversiones.
+
+- **Capa de Presentación (`/ui/screens`):**
+    - **`ConverterScreen.kt`:** Nueva pantalla con campos de texto y menús desplegables para la interacción del usuario. Muestra el resultado en una tarjeta destacada.
+    - **Acceso a la Pantalla:** Se ha añadido un nuevo ítem, "Conversor de Moneda", en la barra lateral desplegable (`DrawerContent`) para navegar a esta funcionalidad.
+
+**Mejoras y Cambios Recientes (v3.1):**
+
+- **Mejoras en la Experiencia de Usuario (UI/UX):**
+    - **Validación de Entrada:** El campo de monto ahora solo acepta valores numéricos, previniendo errores de formato.
+    - **Feedback Visual:** `ConverterScreen.kt` muestra un indicador de carga (`CircularProgressIndicator`) mientras la conversión está en proceso. El resultado solo se muestra al completarse.
+    - **Intercambio de Monedas:** El botón de intercambio (`swap`) ahora es completamente funcional.
+    - **Diseño Consistente:** La tarjeta que muestra el resultado de la conversión ahora utiliza el color `LavenderBlue`, alineándose con la paleta de colores principal de la aplicación.
