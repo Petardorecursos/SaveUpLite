@@ -1,5 +1,6 @@
 package com.example.saveuplite.ui.screens.auth
 
+import android.app.Application
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,8 +36,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.saveuplite.R
+import com.example.saveuplite.api.RetrofitClient
 import com.example.saveuplite.ui.navigation.Routes
 import com.example.saveuplite.ui.theme.*
+import com.example.saveuplite.viewmodel.AuthViewModelFactory
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 
 // --- Transformación visual para el RUT (se mantiene sin cambios) ---
@@ -72,7 +75,7 @@ private class RutVisualTransformation : VisualTransformation {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AuthTextField(
+internal fun AuthTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
@@ -115,9 +118,12 @@ private fun AuthTextField(
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AuthScreen(
-    navController: NavHostController,
-    viewModel: UsuarioViewModel = viewModel()
+    navController: NavHostController
 ) {
+    val application = LocalContext.current.applicationContext as Application
+    val factory = AuthViewModelFactory(RetrofitClient.apiService, application)
+    val viewModel: UsuarioViewModel = viewModel(factory = factory)
+
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current

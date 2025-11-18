@@ -110,3 +110,10 @@ dependencies {
         useJUnitPlatform()
     }
 }
+
+// Forzar una versión específica para resolver conflictos de dependencias transitivas
+configurations.all {
+    resolutionStrategy {
+        force("androidx.test.espresso:espresso-core:3.5.0")
+    }
+}

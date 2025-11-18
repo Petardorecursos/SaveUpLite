@@ -1,0 +1,157 @@
+# Documentación de la Estrategia de Testing y Refactorización
+
+**Versión:** 1.1
+**Autor:** Rui
+**Fecha:** 2024-05-24
+
+## 1. Objetivo
+
+El objetivo de esta iniciativa fue implementar una estrategia de testing híbrida y moderna en la aplicación, siguiendo los requerimientos de la arquitectura y la calidad del software. La estrategia se basa en:
+
+-   **Pruebas Unitarias de Lógica y ViewModel:** Utilizando **Kotest** como framework de ejecución, **MockK** para la simulación de dependencias y `kotlinx-coroutines-test` para el manejo de código asíncrono.
+-   **Pruebas de Componentes de UI:** Utilizando **JUnit 5** y **Compose UI Test** para validar el comportamiento y la renderización de componentes de Jetpack Compose de forma aislada.
+
+## 2. Refactorización para la Testeabilidad
+
+El primer paso y el más crucial fue refactorizar la capa de `ViewModel` para hacerla testeable, ya que originalmente presentaba un fuerte acoplamiento a la capa de red.
+
+### 2.1. El Problema: Acoplamiento Directo
+
+El `UsuarioViewModel` estaba directamente acoplado al singleton `RetrofitClient`, obteniendo la instancia de `ApiService` de forma estática:
+
+```kotlin
+// Código original en UsuarioViewModel
+val response = withContext(Dispatchers.IO) {
+    RetrofitClient.apiService.loginUsuario(loginDTO) // <-- Acoplamiento directo
+}
+```
+
+Esto hacía imposible reemplazar `apiService` con un *mock* o una versión falsa en un entorno de prueba, impidiendo el aislamiento del `ViewModel`.
+
+### 2.2. La Solución: Inyección de Dependencias (DI)
+
+Se aplicó el principio de Inversión de Control (IoC) a través de la Inyección de Dependencias.
+
+1.  **Modificación del `UsuarioViewModel`:** Se cambió el constructor del `UsuarioViewModel` para que recibiera una instancia de la interfaz `ApiService` como parámetro. Ahora el `ViewModel` no sabe cómo se crea el servicio, solo que necesita uno.
+
+    ```kotlin
+    // Código refactorizado
+    class UsuarioViewModel(
+        private val apiService: ApiService, // <-- Dependencia inyectada
+        application: Application
+    ) : AndroidViewModel(application) { ... }
+    ```
+
+2.  **Creación de `AuthViewModelFactory`:** Este cambio requirió la creación de una `ViewModelProvider.Factory`. Su única responsabilidad es saber cómo construir (`instanciar`) un `UsuarioViewModel`, proveyéndole las dependencias que necesita (la implementación real de `ApiService` desde `RetrofitClient`).
+
+3.  **Actualización de la Capa de UI (`AuthScreen`):** Se modificó el Composable `AuthScreen` para que utilizara `AuthViewModelFactory` al momento de solicitar su `ViewModel`.
+
+4.  **Ajuste en `NavGraph.kt`:** Finalmente, se corrigió la llamada a `AuthScreen` dentro del `AppNavHost` para que dejara de pasar el `ViewModel` como parámetro, ya que ahora la pantalla gestiona su propia creación.
+
+## 3. Implementación de Pruebas
+
+Con el código refactorizado y testeable, se procedió a crear las pruebas.
+
+### 3.1. Pruebas Unitarias del ViewModel (`UsuarioViewModelTest.kt`)
+
+-   **Ubicación:** `app/src/test/` (pruebas locales, se ejecutan en la JVM).
+-   **Tecnologías:** Kotest, MockK, `kotlinx-coroutines-test`.
+
+#### Test 1: Login Exitoso
+
+-   **Given:** Un intento de login.
+-   **When:** Las credenciales son válidas.
+-   **Mocking:** Se usa `coEvery` de MockK para instruir al `mockApiService` para que, al recibir una llamada a `loginUsuario`, devuelva una `Response.success()` con un objeto `Usuario` falso.
+-   **Then:** Se usan las aserciones `shouldBe` de Kotest para verificar que el `uiState` del `ViewModel` se actualiza correctamente: `isAuthenticated` es `true` y `currentUser` contiene los datos del usuario.
+
+#### Test 2: Login Fallido (Error 401)
+
+-   **Given:** Un intento de login.
+-   **When:** Las credenciales son inválidas.
+-   **Mocking:** Se usa `coEvery` para que `mockApiService` devuelva una `Response.error(401)`.
+-   **Then:** Se verifica con `shouldBe` que el `uiState` refleja el estado de error: `isAuthenticated` es `false` y `errorMessage` contiene el texto específico para credenciales inválidas.
+
+### 3.2. Prueba de UI del Componente (`AuthTextFieldTest.kt`)
+
+-   **Ubicación:** `app/src/androidTest/` (pruebas instrumentadas, se ejecutan en un emulador/dispositivo).
+-   **Tecnologías:** JUnit 4 Runner, ComposeTestRule.
+
+#### Preparación
+
+-   Se cambió la visibilidad del Composable `AuthTextField` en `AuthScreen.kt` de `private` a `internal` para hacerlo accesible desde el código de prueba del mismo módulo.
+
+#### Test 1: Renderización en Estado Normal
+
+-   **Arrange:** Usando `composeTestRule.setContent`, se renderiza el `AuthTextField` con valores normales y `isError = false`.
+-   **Assert:** Se utiliza `onNodeWithText` para buscar los nodos de UI que contienen el `label` y el `value` pasados como parámetros, y se confirma con `assertIsDisplayed()` que son visibles en pantalla.
+
+#### Test 2: Renderización en Estado de Error
+
+-   **Arrange:** Se renderiza el `AuthTextField` pasando `isError = true` y un `errorText` específico.
+-   **Assert:** Se usa `onNodeWithText` para buscar el nodo que contiene el mensaje de error y se confirma con `assertIsDisplayed()` que es visible, validando que la lógica de error del componente funciona correctamente.
+
+## 4. Resolución de Conflictos de Dependencias
+
+Durante la implementación de las pruebas de UI (`androidTest`), surgió un conflicto de versiones de dependencias de Gradle que impedía la compilación.
+
+### 4.1. El Problema: Conflicto en `espresso-core`
+
+El log de compilación mostró el siguiente error:
+`Could not resolve all files for configuration ':app:debugAndroidTestRuntimeClasspath'.`
+
+El análisis del error reveló que:
+1.  Una dependencia transitiva de `androidx.compose.ui:ui-test` requería **estrictamente** la versión **`3.5.0`** de `androidx.test.espresso:espresso-core`.
+2.  El catálogo de versiones del proyecto (`libs.versions.toml`) definía y solicitaba la versión **`3.5.1`** de `androidx.test.espresso:espresso-core`.
+
+Gradle no pudo satisfacer ambas restricciones a la vez, resultando en un fallo de compilación.
+
+### 4.2. La Solución: Estrategia de Resolución Forzada (`force`)
+
+Después de intentar soluciones menos invasivas, la solución definitiva y más robusta fue instruir a Gradle para que forzara una versión específica para toda la configuración del módulo.
+
+Se añadió el siguiente bloque al final del archivo `app/build.gradle.kts`:
+
+```kotlin
+// Forzar una versión específica para resolver conflictos de dependencias transitivas
+configurations.all {
+    resolutionStrategy {
+        force("androidx.test.espresso:espresso-core:3.5.0")
+    }
+}
+```
+
+Esta directiva le ordena a Gradle que, para cualquier configuración (`implementation`, `testImplementation`, `androidTestImplementation`, etc.), si se encuentra con la librería `androidx.test.espresso:espresso-core`, debe ignorar cualquier otra solicitud de versión y usar **obligatoriamente** la versión `3.5.0`. Esto resolvió el conflicto de manera limpia y permitió la compilación y ejecución exitosa de todas las pruebas.
+
+## 5. Corrección de Crash en Ejecución Normal post-Refactor
+
+Tras aplicar la refactorización para la inyección de dependencias, las pruebas unitarias y de UI funcionaban correctamente, pero la aplicación sufría un crash inmediato al ser ejecutada de forma normal en un dispositivo o emulador.
+
+### 5.1. El Problema: `NoSuchMethodException`
+
+El análisis del `logcat` reveló la causa raíz del problema:
+
+-   **Error Principal:** `java.lang.RuntimeException: Cannot create an instance of class com.example.saveuplite.viewmodel.UsuarioViewModel`
+-   **Causa Raíz:** `Caused by: java.lang.NoSuchMethodException: com.example.saveuplite.viewmodel.UsuarioViewModel.<init> [class android.app.Application]`
+
+Esto indicaba que el sistema de Android estaba intentando crear una instancia del `UsuarioViewModel` utilizando su constructor por defecto (que solo recibe `Application`), el cual ya no existía. Nuestro nuevo constructor requería una instancia de `ApiService` además de la `Application`.
+
+### 5.2. Diagnóstico y Solución
+
+La traza del error apuntaba al archivo `NavGraph.kt`. El problema residía en que, aunque habíamos corregido la creación del `ViewModel` en la `AuthScreen`, no lo habíamos hecho en el `AppNavHost`, donde se crea una instancia compartida del `ViewModel` para otras pantallas como `DashboardScreen`.
+
+La línea problemática era:
+```kotlin
+// Código incorrecto en NavGraph.kt
+val usuarioViewModel: UsuarioViewModel = viewModel()
+```
+
+**La solución** fue aplicar el mismo patrón que en `AuthScreen`: utilizar nuestra `AuthViewModelFactory` para crear la instancia del `ViewModel` de forma explícita, asegurando que su dependencia `ApiService` fuera inyectada correctamente.
+
+```kotlin
+// Código corregido en NavGraph.kt
+val application = LocalContext.current.applicationContext as Application
+val factory = AuthViewModelFactory(RetrofitClient.apiService, application)
+val usuarioViewModel: UsuarioViewModel = viewModel(factory = factory)
+```
+
+Al corregir este último punto de instanciación, la aplicación volvió a funcionar correctamente en su ejecución normal, completando así el proceso de refactorización.

@@ -1,5 +1,6 @@
 package com.example.saveuplite.ui.navigation
 
+import android.app.Application
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,10 +8,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
+import com.example.saveuplite.api.RetrofitClient
 import com.example.saveuplite.ui.screens.auth.AuthScreen
 import com.example.saveuplite.ui.screens.converter.ConverterScreen
 import com.example.saveuplite.ui.screens.dashboard.DashboardScreen
@@ -21,6 +24,7 @@ import com.example.saveuplite.ui.screens.list.ListScreen
 import com.example.saveuplite.ui.screens.market.MarketScreen
 import com.example.saveuplite.ui.screens.nativeView.LocationScreen
 import com.example.saveuplite.ui.screens.nativeView.NotificationScreen
+import com.example.saveuplite.viewmodel.AuthViewModelFactory
 import com.example.saveuplite.viewmodel.LocationViewModel
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 
@@ -46,14 +50,20 @@ object Routes {
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
 @Composable
 fun AppNavHost(navController: NavHostController) {
-    val usuarioViewModel: UsuarioViewModel = viewModel()
+    // --- CORRECCIÓN ---
+    // Para instanciar un ViewModel con un constructor personalizado, necesitamos su Factory.
+    val application = LocalContext.current.applicationContext as Application
+    val factory = AuthViewModelFactory(RetrofitClient.apiService, application)
+    val usuarioViewModel: UsuarioViewModel = viewModel(factory = factory)
 
     AnimatedNavHost(
         navController = navController,
         startDestination = Routes.AUTH
     ) {
-        // --- Flujo Principal ---
-        composable(Routes.AUTH) { AuthScreen(navController, usuarioViewModel) }
+        // AuthScreen crea su propia instancia de ViewModel, por lo que no se le pasa.
+        composable(Routes.AUTH) { AuthScreen(navController) }
+        
+        // Las otras pantallas sí usan la instancia compartida creada aquí.
         composable(Routes.HOME) { DashboardScreen(navController, usuarioViewModel) }
         composable(Routes.TRANSACTION_HISTORY) { TransactionHistoryScreen(navController, usuarioViewModel) }
 
@@ -61,7 +71,7 @@ fun AppNavHost(navController: NavHostController) {
         composable(Routes.DEBTS) { PlaceholderScreen(screenName = "Deudas") }
         composable(Routes.GOALS) { PlaceholderScreen(screenName = "Metas de Ahorro") }
         composable(Routes.MARKET) { MarketScreen(navController = navController) }
-        composable(Routes.CONVERTER) { ConverterScreen(navController = navController) } // <-- NUEVO COMPOSABLE
+        composable(Routes.CONVERTER) { ConverterScreen(navController = navController) }
 
         // --- Rutas de funciones adicionales (Legacy) ---
         composable(Routes.LEGACY_HOME) { HomeScreen(navController, usuarioViewModel) }
