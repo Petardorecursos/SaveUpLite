@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -18,6 +21,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // --- CONFIGURACIÓN DE FIRMA ---
+    // Carga las propiedades de firma desde local.properties para mantenerlas fuera del control de versiones
+    val keystoreProperties = Properties()
+    val keystoreFile = rootProject.file("local.properties")
+    if (keystoreFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystoreFile))
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("my-upload-key.jks")
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = "my-key-alias" // Alias de la clave
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+        }
+    }
+    // --- FIN CONFIGURACIÓN DE FIRMA ---
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -25,6 +46,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release") // Aplica la configuración de firma
+        }
+        debug {
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Puedes añadir una configuración de firma para debug si lo necesitas, o dejarla sin firmar
         }
     }
 
@@ -40,6 +67,7 @@ android {
     buildFeatures {
         compose = true
     }
+
 }
 
 dependencies {
