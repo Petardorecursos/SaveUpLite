@@ -1,0 +1,128 @@
+A continuación, se detalla el funcionamiento de la entidad `Usuario` en el proyecto SaveUp Lite, abarcando tanto el backend como el frontend, y sus interconexiones.
+
+---
+
+### **1. El Usuario en el Backend (Capa de Datos y Lógica del Servidor)**
+
+El backend de SaveUp Lite, desarrollado con Spring Boot, gestiona la persistencia, validación y autenticación de los usuarios.
+
+**1.1. Entidad `Usuario` (Modelo de Dominio)**
+Definida en el archivo `backend_clases.txt` como una clase Java JPA, representa la tabla `USUARIO` en la base de datos.
+*   **`rut` (String - PK):** Identificador único del usuario, utilizado como clave principal.
+*   **`nombre`, `apellido` (String):** Información personal del usuario.
+*   **`email` (String - Único):** Correo electrónico del usuario, también único, usado para login.
+*   **`contrasena` (String - HASHED):** Almacena el hash de la contraseña, **nunca la contraseña en texto plano**, garantizando la seguridad.
+*   **`fechaRegistro` (Date):** Timestamp de cuándo se creó la cuenta, se establece automáticamente al persistir el usuario (`@PrePersist`).
+*   **Relaciones:** Es el "lado uno" de una relación `OneToMany` con la entidad `Movimiento`, es decir, un usuario puede tener muchos movimientos registrados.
+
+**1.2. Repositorio `UsuarioRepository` (Persistencia)**
+También detallado en `backend_clases.txt`, es una interfaz que extiende `JpaRepository`.
+*   Permite operaciones CRUD básicas sobre la entidad `Usuario`.
+*   **`findByEmail(String email)`:** Método crucial para buscar un usuario por su correo electrónico, fundamental para el proceso de login.
+*   **`existsByEmail(String email)`:** Verifica si un correo electrónico ya está registrado en la base de datos, utilizado en el registro para evitar duplicados.
+
+**1.3. DTOs (Data Transfer Objects)**
+Clases que definen la estructura de los datos que se esperan o se envían a través de la API, con validaciones para asegurar la integridad.
+*   **`UsuarioLoginDTO`:** (de `backend_clases.txt`)
+    *   `email`, `contrasena`: Campos requeridos para iniciar sesión. Incluye validaciones `@NotBlank` y `@Email`.
+*   **`UsuarioRegistroDTO`:** (de `backend_clases.txt`)
+    *   `rut`, `nombre`, `apellido`, `email`, `contrasena`: Todos los campos necesarios para crear una nueva cuenta. Contiene validaciones `@NotBlank`, `@Size`, `@Email` y `@Pattern` (para RUT y complejidad de contraseña).
+
+**1.4. Servicio `UsuarioService` (Lógica de Negocio)**
+En `backend_clases.txt`, esta clase maneja la lógica central de usuarios.
+*   **`registrarUsuario(UsuarioRegistroDTO usuarioDTO)`:**
+    *   Realiza validaciones de negocio: verifica si el RUT o el email ya existen utilizando `usuarioRepository`.
+    *   **Codifica la contraseña:** Utiliza `PasswordEncoder` (inyectado vía `BCryptPasswordEncoder`) para hashear la contraseña antes de guardarla, un paso de seguridad crítico.
+    *   Guarda el nuevo usuario en la base de datos a través del `usuarioRepository`.
+    *   Lanza `IllegalStateException` si hay conflictos de RUT o email.
+*   **`autenticarUsuario(UsuarioLoginDTO loginDTO)`:**
+    *   Busca al usuario por email.
+    *   Compara la contraseña proporcionada en el `loginDTO` con el hash almacenado en la base de datos, utilizando `passwordEncoder.matches()`.
+    *   Si las credenciales son válidas, devuelve el objeto `Usuario`.
+    *   Lanza `BadCredentialsException` si el email no se encuentra o la contraseña es incorrecta, evitando dar pistas a posibles atacantes.
+
+**1.5. Controlador `UsuarioController` (API REST)**
+Expone los endpoints de usuario para que el frontend pueda interactuar con ellos, definido en `backend_clases.txt`.
+*   **`POST /api/usuarios/register`:**
+    *   Recibe un `UsuarioRegistroDTO`.
+    *   Delega la lógica a `usuarioService.registrarUsuario()`.
+    *   Devuelve `201 CREATED` en caso de éxito, `409 CONFLICT` (si RUT/email existen) o `500 INTERNAL_SERVER_ERROR`.
+*   **`POST /api/usuarios/login`:**
+    *   Recibe un `UsuarioLoginDTO`.
+    *   Delega la autenticación a `usuarioService.autenticarUsuario()`.
+    *   Si la autenticación es exitosa, devuelve `200 OK` con el objeto `Usuario` (con la contraseña establecida a `null` para no exponer el hash).
+    *   Devuelve `401 UNAUTHORIZED` si las credenciales son inválidas.
+
+---
+
+### **2. El Usuario en el Frontend (Aplicación Android)**
+
+La aplicación Android (Jetpack Compose) interactúa con el backend para gestionar el estado del usuario, desde el login hasta el acceso a funcionalidades autenticadas.
+
+**2.1. Modelo `Usuario` (en Android)**
+Aunque no se proporcionó explícitamente `Usuario.kt` en el código Kotlin, inferimos su estructura a partir del `AuthUiState` y el `Usuario` que devuelve el backend. Es una clase de datos que representa al usuario autenticado, típicamente conteniendo `rut`, `nombre`, `apellido`, `email`, y `fechaRegistro`. La `contrasena` nunca es parte de este modelo en el frontend.
+
+**2.2. Interfaz `ApiService` (Comunicación con Backend)**
+En `UsuarioViewModel.kt`, se importa `com.example.saveuplite.api.ApiService`. Esta interfaz (no proporcionada, pero implícita) define los métodos para realizar las llamadas HTTP a los endpoints del `UsuarioController` del backend. Por ejemplo:
+*   `suspend fun loginUsuario(loginDTO: UsuarioLoginDTO): Response<Usuario>`
+*   `suspend fun registerUsuario(registroDTO: UsuarioRegistroDTO): Response<Unit>` (o `Response<SomeSuccessMessageDTO>`)
+
+**2.3. ViewModel `UsuarioViewModel` (Lógica de UI y Estado)**
+Ubicado en `G:/LITEfront/app/src/main/java/com/example/saveuplite/viewmodel/UsuarioViewModel.kt`, es la pieza central que gestiona el estado de autenticación.
+*   **`AuthUiState` (clase de datos):** Representa el estado actual de la UI de autenticación, incluyendo:
+    *   `isLoading`: Si una operación (login/registro) está en curso.
+    *   `errorMessage`: Mensaje de error a mostrar al usuario.
+    *   `isAuthenticated`: Booleano que indica si el usuario está logueado.
+    *   `registrationSuccess`: Booleano que indica si el registro fue exitoso.
+    *   `currentUser`: El objeto `Usuario` si la autenticación fue exitosa.
+*   **Constructor:** Ahora recibe `ApiService` (inyectada) y `Application`, lo que lo hace testeable (como se explica en `testing_doc.txt`).
+*   **`_uiState` (MutableStateFlow) y `uiState` (StateFlow):** Gestionan el estado de la UI de forma reactiva.
+*   **`login(email: String, contrasena: String)`:**
+    *   Actualiza `isLoading` a `true`.
+    *   Crea un `UsuarioLoginDTO` y llama a `apiService.loginUsuario()`.
+    *   Maneja la respuesta: si es exitosa (`200 OK`), actualiza `isAuthenticated` a `true` y `currentUser` con los datos del usuario. Si hay un error (ej. `401 UNAUTHORIZED` o `IOException`), establece `errorMessage`.
+*   **`register(rut: String, ...)`:**
+    *   Actualiza `isLoading` a `true`.
+    *   Crea un `UsuarioRegistroDTO` y llama a `apiService.registerUsuario()`.
+    *   Maneja la respuesta: si es exitosa, establece `registrationSuccess` a `true`. Si hay un error (ej. `400 BAD REQUEST`, `409 CONFLICT`), establece `errorMessage`.
+*   **`logout()`:** Resetea el `_uiState` a su estado inicial, desautenticando al usuario.
+*   `clearErrors()`, `resetRegistrationSuccess()`: Funciones para gestionar el ciclo de vida de los mensajes de UI.
+
+**2.4. Pantallas de UI (`AuthScreen`, `NavGraph`, `DashboardScreen`, etc.)**
+*   **`AuthScreen.kt` (`G:/LITEfront/app/src/main/java/com/example/saveuplite/ui/screens/auth/AuthScreen.kt`):**
+    *   Es la pantalla de login/registro. Observa el `uiState` del `UsuarioViewModel`.
+    *   Contiene campos de texto para RUT, nombre, apellido, email y contraseña.
+    *   Incluye validación local de los campos (ej. formato de RUT, complejidad de contraseña).
+    *   Llama a `viewModel.login()` o `viewModel.register()` al presionar los botones.
+    *   Usa `LaunchedEffect` para reaccionar a cambios en `uiState.isAuthenticated` (navegación a `HOME`) y `uiState.errorMessage` (mostrar `Toast`).
+    *   `RutVisualTransformation`: Una transformación visual específica para el formato del RUT.
+*   **`NavGraph.kt` (`G:/LITEfront/app/src/main/java/com/example/saveuplite/ui/navigation/NavGraph.kt`):**
+    *   **Punto clave para la persistencia del estado del usuario.** El `UsuarioViewModel` se instancia **una sola vez** en `AppNavHost` utilizando `AuthViewModelFactory`.
+    *   Esta instancia compartida de `usuarioViewModel` es luego **pasada como parámetro** a `AuthScreen` y a todas las pantallas que necesitan conocer al usuario autenticado (ej. `DashboardScreen`, `TransactionHistoryScreen`, `HomeScreen`).
+    *   Esto asegura que, tras un login exitoso en `AuthScreen`, el `currentUser` dentro del `usuarioViewModel` se mantenga y esté disponible en todas las pantallas posteriores sin necesidad de volver a autenticar.
+*   **`DashboardScreen.kt`, `TransactionHistoryScreen.kt`, `HomeScreen.kt`:**
+    *   Estas pantallas reciben la misma instancia de `usuarioViewModel`.
+    *   Utilizan `uiState.currentUser?.rut` para hacer llamadas a la API que requieren el `rut` del usuario (ej. `obtenerMovimientosPorUsuario` o `obtenerSaldoActual` del backend).
+    *   Muestran información personalizada del usuario, como el nombre de bienvenida.
+
+---
+
+### **3. Conexiones y Relaciones Clave**
+
+1.  **Backend (Spring Boot):**
+    *   `UsuarioController` expone los endpoints.
+    *   `UsuarioService` contiene la lógica de negocio (registro, autenticación, codificación de contraseña).
+    *   `UsuarioRepository` interactúa con la base de datos para `Usuario`.
+    *   `MovimientoRepository` tiene relaciones con `Usuario` para obtener movimientos por `rut`.
+    *   `PasswordEncoder` (`BCryptPasswordEncoder`) se encarga de la seguridad de las contraseñas.
+    *   `SecurityConfig` permite el registro sin autenticación y sentará las bases para la seguridad JWT de otros endpoints (como `movimientos`).
+    *   `WebConfig` maneja las políticas CORS para permitir la comunicación con el frontend.
+
+2.  **Frontend (Android Compose):**
+    *   `AuthScreen` es la interfaz para interactuar con el usuario para login/registro.
+    *   `UsuarioViewModel` es el intermediario entre la UI y la `ApiService`, manteniendo el estado de autenticación.
+    *   `ApiService` (implementado por `RetrofitClient.apiService`) es el cliente HTTP que consume los endpoints del backend.
+    *   `NavGraph` es crucial para la **inyección de la misma instancia** de `UsuarioViewModel` a través de las diferentes pantallas, garantizando la persistencia del `currentUser` tras el login.
+    *   `DashboardScreen` y otras pantallas autenticadas utilizan el `currentUser` del `UsuarioViewModel` para mostrar datos y realizar operaciones específicas del usuario.
+
+En resumen, la entidad `Usuario` es el pilar de la autenticación y personalización en SaveUp Lite. Su correcta gestión, desde el almacenamiento seguro en el backend hasta su propagación consistente en el frontend, es fundamental para el funcionamiento de la aplicación.

@@ -1,7 +1,7 @@
 # Arquitectura de Backend - Modelo Orientado a Transacciones
 
 **Versión:** 1.1
-**Autor:** Gemini
+**Autor:** Rui
 **Fecha:** 2024-05-23
 
 ## 1. Concepto Clave: Los Movimientos como Fuente Única de Verdad

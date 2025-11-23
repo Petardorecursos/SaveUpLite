@@ -60,8 +60,8 @@ fun AppNavHost(navController: NavHostController) {
         navController = navController,
         startDestination = Routes.AUTH
     ) {
-        // AuthScreen crea su propia instancia de ViewModel, por lo que no se le pasa.
-        composable(Routes.AUTH) { AuthScreen(navController) }
+        // AuthScreen ahora recibe el ViewModel como parámetro.
+        composable(Routes.AUTH) { AuthScreen(navController, usuarioViewModel) }
         
         // Las otras pantallas sí usan la instancia compartida creada aquí.
         composable(Routes.HOME) { DashboardScreen(navController, usuarioViewModel) }

@@ -118,12 +118,13 @@ internal fun AuthTextField(
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AuthScreen(
-    navController: NavHostController
+    navController: NavHostController,
+    viewModel: UsuarioViewModel // ViewModel now passed as a parameter
 ) {
-    val application = LocalContext.current.applicationContext as Application
-    val factory = AuthViewModelFactory(RetrofitClient.apiService, application)
-    val viewModel: UsuarioViewModel = viewModel(factory = factory)
-
+    // val application = LocalContext.current.applicationContext as Application // Moved to NavGraph
+    // val factory = AuthViewModelFactory(RetrofitClient.apiService, application) // Moved to NavGraph
+    // val viewModel: UsuarioViewModel = viewModel(factory = factory) // REMOVED: ViewModel is now passed in
+    
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -167,19 +168,19 @@ fun AuthScreen(
                 apellidoError = "El apellido debe tener al menos 2 caracteres"
                 isValid = false
             }
-            val rutRegex = "^\\d{7,8}-[\\dkK]{1}$".toRegex()
+            val rutRegex = """^\d{7,8}-[\dkK]{1}$""".toRegex()
             if (!rutToValidate.matches(rutRegex)) {
                 rutError = "Formato de RUT inválido (ej: 12.345.678-9)"
                 isValid = false
             }
         }
 
-        val emailRegex = "^[\\w-\\.+]*[\\w-]?@([\\w-]+\\.)+[\\w-]{2,4}$".toRegex()
+        val emailRegex = """^[\w-.+]*[\w-]?@([\w-]+\.)+[\w-]{2,4}$""".toRegex()
         if (!email.matches(emailRegex)) {
             emailError = "Formato de correo inválido"
             isValid = false
         }
-        val passwordRegex = "^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{8,20}$".toRegex()
+        val passwordRegex = """^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,20}$""".toRegex()
         if (!contrasena.matches(passwordRegex)) {
             contrasenaError = "La contraseña debe tener 8-20 caracteres, con letras y números"
             isValid = false
@@ -289,7 +290,8 @@ fun AuthScreen(
                     if (validateFields(rutToValidate)) {
                         if (isLoginScreen) {
                             viewModel.login(email, contrasena)
-                        } else {
+                        }
+                        else {
                             viewModel.register(rutToValidate, nombre, apellido, email, contrasena)
                         }
                     }
