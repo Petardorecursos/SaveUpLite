@@ -52,40 +52,68 @@ Clases para transferir datos entre el cliente y el servidor de forma segura y va
 Expone la funcionalidad a través de una API REST.
 
 *   **`POST /api/deudas`**: Crea una nueva deuda.
-    *   Body: `DeudaCreacionDTO`.
-    *   Respuesta: `201 CREATED` con `DeudaResponseDTO`.
-
 *   **`GET /api/deudas/usuario/{rut}`**: Obtiene la lista de todas las deudas de un usuario.
-    *   Respuesta: `200 OK` con `List<DeudaResponseDTO>`.
-
 *   **`POST /api/deudas/{deudaId}/pagar`**: Registra el pago de una cuota para una deuda específica.
-    *   Body: `PagoDeudaDTO`.
-    *   Respuesta: `200 OK` con el `DeudaResponseDTO` actualizado.
-
 *   **`PUT /api/deudas/{deudaId}`**: Edita los detalles de una deuda.
-    *   Restricción: Solo permitido si la deuda no tiene pagos registrados.
-    *   Body: `DeudaCreacionDTO`.
-    *   Respuesta: `200 OK` con `DeudaResponseDTO` actualizado.
-
 *   **`PATCH /api/deudas/{deudaId}/cancelar`**: Cambia el estado de una deuda a `CANCELADA` (soft delete).
-    *   Respuesta: `200 OK` con `DeudaResponseDTO` actualizado.
-
-### 2.5. Servicio (`DeudaService`) - Lógica de Negocio Detallada
-Orquesta toda la lógica, interactuando con los repositorios y aplicando las reglas de negocio.
-
-*   **`crearDeuda()`**: Asigna el usuario, establece el estado inicial a `PENDIENTE` y guarda la nueva deuda.
-*   **`obtenerDeudasPorUsuario()`**: Recupera las deudas y utiliza el método `convertirADeudaResponseDTO` para calcular y ensamblar la respuesta para cada una.
-*   **`registrarPago()`**:
-    1.  Valida que la deuda exista y esté `PENDIENTE`.
-    2.  Crea un nuevo `Movimiento` con `tipoMovimiento = PAGO_DEUDA`, monto negativo y lo asocia a la deuda.
-    3.  Recalcula el `totalPagado` y si este es `>= montoTotal`, actualiza el estado de la deuda a `PAGADA`.
-    4.  Devuelve el DTO de la deuda actualizado.
-*   **`editarDeuda()`**: Valida que no existan pagos previos (`countPagosPorDeuda == 0`) antes de permitir la modificación.
-*   **`cancelarDeuda()`**: Realiza un "soft delete" cambiando el estado a `CANCELADA`.
-*   **`convertirADeudaResponseDTO()`**: Método privado clave que toma una entidad `Deuda` y llama a las consultas del `DeudaRepository` (`findTotalPagadoPorDeuda`, `countPagosPorDeuda`) para poblar los campos calculados del DTO de respuesta.
 
 ---
 ## 3. Modificaciones a Clases Existentes
 
 ### 3.1. `Movimiento` (Entidad)
 Se activó la relación `ManyToOne` con la entidad `Deuda`.
+
+---
+## 4. Implementación en el Frontend (Android - Jetpack Compose)
+
+Esta sección detalla cómo la aplicación Android consume la API de deudas y presenta la funcionalidad al usuario final.
+
+### 4.1. Modelos de Datos (Paquete `model.deuda`)
+Se crearon data classes en Kotlin que reflejan la estructura de los DTOs del backend para asegurar una correcta deserialización con Gson.
+*   **`Deuda.kt`**: Análogo al `DeudaResponseDTO`. Representa una deuda con todos sus campos, incluyendo los calculados por el backend.
+*   **`DeudaCreacion.kt`**: Análogo al `DeudaCreacionDTO`. Se utiliza para encapsular los datos que el usuario ingresa en el formulario de nueva deuda.
+*   **`PagoDeuda.kt`**: Análogo al `PagoDeudaDTO`. Contiene el monto y descripción de un pago.
+*   **`EstadoDeuda.kt`**: Enum que replica el `EstadoDeuda` del backend para una gestión de estados consistente en el frontend.
+
+### 4.2. Capa de Red (`api.ApiService`)
+La interfaz de Retrofit fue extendida para incluir los nuevos endpoints de deudas.
+*   `suspend fun crearDeuda(@Body deudaCreacion: DeudaCreacion): Response<Deuda>`
+*   `suspend fun obtenerDeudasPorUsuario(@Path("rut") rut: String): Response<List<Deuda>>`
+*   `suspend fun registrarPagoDeuda(@Path("deudaId") deudaId: Long, @Body pagoDeuda: PagoDeuda): Response<Deuda>`
+*   `suspend fun editarDeuda(...)` y `cancelarDeuda(...)` (definidas para futuras implementaciones).
+
+### 4.3. ViewModel (`DeudaViewModel` y `DeudaViewModelFactory`)
+El `DeudaViewModel` orquesta toda la lógica de la UI y la interacción con la capa de red.
+*   **`DeudaUiState`**: Data class que representa el estado de la UI (lista de deudas, estado de carga, mensajes de error, etc.).
+*   **`obtenerDeudas(rut: String)`**: Llama al `apiService` para obtener las deudas y actualiza el `_uiState` con la lista o con un mensaje de error.
+*   **`crearDeuda(deudaCreacion: DeudaCreacion)`**: Envía la nueva deuda al backend y, si es exitoso, dispara la recarga de la lista.
+*   **`registrarPago(deudaId: Long, ...)`**: Envía un nuevo pago y recarga la lista para reflejar el progreso.
+*   **`DeudaViewModelFactory`**: Clase factory esencial para la inyección de dependencias, que provee la instancia de `ApiService` al `DeudaViewModel`.
+
+### 4.4. Interfaz de Usuario (UI - Jetpack Compose)
+
+#### 4.4.1. `DeudasScreen.kt` (Pantalla Principal)
+*   **Estructura**: Utiliza un `Scaffold` con una `TopAppBar`, la `SoftUiBottomNav` compartida y un `FloatingActionButton` para añadir nuevas deudas.
+*   **Estado**: Observa el `uiState` del `DeudaViewModel` para mostrar un `CircularProgressIndicator`, un mensaje de error, un mensaje de "sin deudas" o la lista de deudas.
+*   **Lista**: Usa una `LazyColumn` para renderizar eficientemente la lista de `DeudaItem`.
+*   **Flujo de Pago**: Inicia un diálogo (`PagoDeudaDialog`) cuando el usuario presiona "Registrar Pago".
+*   **Corrección de Lógica de Negocio**: Implementa un cálculo en el frontend para las **cuotas pagadas reales** (`cuotasPagadasReales`). Este cálculo (`montoPagado / valorCuota`) sobrescribe el valor `cuotasPagadas` que viene del backend, ya que el backend cuenta transacciones en lugar de progreso real. Esto asegura que la UI siempre muestre el número correcto de cuotas completadas.
+
+#### 4.4.2. `AddDeudaScreen.kt` (Formulario de Creación)
+*   **Estructura**: Un `Scaffold` con una barra superior que incluye un botón para volver atrás.
+*   **Formulario**: Contiene `OutlinedTextField` para nombre, descripción, monto y cuotas.
+*   **Mejoras de Usabilidad**:
+    *   **Tabulación (Focus Management)**: Utiliza `FocusRequester` y `KeyboardActions` para permitir que el usuario navegue entre los campos con la acción "Siguiente" del teclado.
+    *   **Formato de Monto**: Aplica una `NumberVisualTransformation` personalizada al campo de monto para mostrar separadores de miles mientras el usuario escribe, mejorando la legibilidad.
+
+#### 4.4.3. `PagoDeudaDialog` (Dentro de `DeudasScreen.kt`)
+*   **Componente**: Un `AlertDialog` que se muestra al intentar pagar una deuda.
+*   **Funcionalidad Avanzada**: Permite al usuario elegir entre dos modos de pago mediante `RadioButton`:
+    1.  **Monto Cuota**: Calcula y pre-rellena automáticamente el monto de la cuota (`monto restante / cuotas restantes`). El campo de texto se deshabilita.
+    2.  **Monto Personalizado**: Permite al usuario ingresar un monto diferente.
+*   **Lógica de Cálculo**: También utiliza el cálculo de `cuotasPagadasReales` para sugerir correctamente el número de la siguiente cuota en la descripción por defecto (ej. "Pago cuota 5").
+
+### 4.5. Navegación (`NavGraph.kt`)
+*   Se añadieron las rutas `Routes.DEBTS` y `Routes.ADD_DEBT`.
+*   El `composable` para `DeudasScreen` reemplazó al `PlaceholderScreen` anterior.
+*   Se asegura que `DeudasScreen` y `AddDeudaScreen` reciban la instancia compartida de `UsuarioViewModel` para acceder al RUT del usuario autenticado.
