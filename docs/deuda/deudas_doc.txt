@@ -1,0 +1,91 @@
+# Documentación de la Funcionalidad de Deudas
+**Versión:** 2.0
+**Autor:** Rui
+**Fecha:** 2024-05-24
+
+Este documento detalla la lógica de negocio y la implementación técnica de la gestión de deudas en el backend de SaveUp Lite.
+
+---
+## 1. Lógica de Negocio y Arquitectura
+
+Esta sección describe los principios fundamentales que rigen la funcionalidad de deudas, alineados con la arquitectura general del sistema.
+
+### 1.1. La Entidad `Deuda`
+La entidad `Deuda` almacena la información inicial y fija de una obligación financiera.
+*   **Atributos Fijos:** `id`, `nombre`, `descripcion`, `montoTotal`, `cantidadCuotas`, `fechaCreacion`, `usuario`.
+*   **Atributo de Estado:** `estado` (un Enum `EstadoDeuda`) que refleja su ciclo de vida.
+
+### 1.2. El `EstadoDeuda` (Enum)
+Un enum para gestionar el estado de la deuda de forma segura.
+*   `PENDIENTE`: La deuda está activa y tiene un saldo restante.
+*   `PAGADA`: El total de los pagos asociados iguala o supera el `montoTotal`.
+*   `CANCELADA`: El usuario decidió anularla (soft delete).
+
+### 1.3. Conexión Crucial: `Deuda` y `Movimiento`
+Este es el pilar de la integridad de los datos:
+*   **Registrar un pago de cuota CREA un nuevo `Movimiento`**, no modifica la `Deuda` directamente.
+*   Este `Movimiento` tiene:
+    *   `tipoMovimiento` = `PAGO_DEUDA`.
+    *   `monto` negativo (es un egreso).
+    *   Una `ForeignKey` que lo vincula con el `id` de la `Deuda`.
+
+### 1.4. Valores Calculados en Tiempo Real
+Los datos de progreso de la deuda no se almacenan; se calculan bajo demanda para garantizar la consistencia.
+*   **`montoPagado`**: `SUM(movimiento.monto)` de los pagos asociados.
+*   **`montoRestante`**: `deuda.montoTotal - montoPagado`.
+*   **`cuotasPagadas`**: `COUNT(*)` de los pagos asociados.
+
+---
+## 2. Implementación en el Backend (Spring Boot)
+
+### Referirse a archivo 'deuda_backend_doc.txt'
+
+
+### 2.3. DTOs (Data Transfer Objects)
+Clases para transferir datos entre el cliente y el servidor de forma segura y validada.
+
+*   **`DeudaCreacionDTO`**: Para recibir los datos al crear o editar una deuda.
+*   **`DeudaResponseDTO`**: Para enviar al cliente el estado completo de una deuda, incluyendo los campos calculados.
+*   **`PagoDeudaDTO`**: Para recibir los datos de un pago de cuota.
+
+### 2.4. Controlador (`DeudaController`) y Endpoints
+Expone la funcionalidad a través de una API REST.
+
+*   **`POST /api/deudas`**: Crea una nueva deuda.
+    *   Body: `DeudaCreacionDTO`.
+    *   Respuesta: `201 CREATED` con `DeudaResponseDTO`.
+
+*   **`GET /api/deudas/usuario/{rut}`**: Obtiene la lista de todas las deudas de un usuario.
+    *   Respuesta: `200 OK` con `List<DeudaResponseDTO>`.
+
+*   **`POST /api/deudas/{deudaId}/pagar`**: Registra el pago de una cuota para una deuda específica.
+    *   Body: `PagoDeudaDTO`.
+    *   Respuesta: `200 OK` con el `DeudaResponseDTO` actualizado.
+
+*   **`PUT /api/deudas/{deudaId}`**: Edita los detalles de una deuda.
+    *   Restricción: Solo permitido si la deuda no tiene pagos registrados.
+    *   Body: `DeudaCreacionDTO`.
+    *   Respuesta: `200 OK` con `DeudaResponseDTO` actualizado.
+
+*   **`PATCH /api/deudas/{deudaId}/cancelar`**: Cambia el estado de una deuda a `CANCELADA` (soft delete).
+    *   Respuesta: `200 OK` con `DeudaResponseDTO` actualizado.
+
+### 2.5. Servicio (`DeudaService`) - Lógica de Negocio Detallada
+Orquesta toda la lógica, interactuando con los repositorios y aplicando las reglas de negocio.
+
+*   **`crearDeuda()`**: Asigna el usuario, establece el estado inicial a `PENDIENTE` y guarda la nueva deuda.
+*   **`obtenerDeudasPorUsuario()`**: Recupera las deudas y utiliza el método `convertirADeudaResponseDTO` para calcular y ensamblar la respuesta para cada una.
+*   **`registrarPago()`**:
+    1.  Valida que la deuda exista y esté `PENDIENTE`.
+    2.  Crea un nuevo `Movimiento` con `tipoMovimiento = PAGO_DEUDA`, monto negativo y lo asocia a la deuda.
+    3.  Recalcula el `totalPagado` y si este es `>= montoTotal`, actualiza el estado de la deuda a `PAGADA`.
+    4.  Devuelve el DTO de la deuda actualizado.
+*   **`editarDeuda()`**: Valida que no existan pagos previos (`countPagosPorDeuda == 0`) antes de permitir la modificación.
+*   **`cancelarDeuda()`**: Realiza un "soft delete" cambiando el estado a `CANCELADA`.
+*   **`convertirADeudaResponseDTO()`**: Método privado clave que toma una entidad `Deuda` y llama a las consultas del `DeudaRepository` (`findTotalPagadoPorDeuda`, `countPagosPorDeuda`) para poblar los campos calculados del DTO de respuesta.
+
+---
+## 3. Modificaciones a Clases Existentes
+
+### 3.1. `Movimiento` (Entidad)
+Se activó la relación `ManyToOne` con la entidad `Deuda`.

@@ -498,12 +498,21 @@ package com.example.saveup.service;
 
 import com.example.saveup.dto.MovimientoRegistroDTO;
 import com.example.saveup.dto.MovimientoResponseDTO;
+import com.example.saveup.dto.PageResponseDTO;
+import com.example.saveup.model.Deuda;
 import com.example.saveup.model.Movimiento;
 import com.example.saveup.model.Usuario;
+import com.example.saveup.model.enums.EstadoDeuda;
+import com.example.saveup.model.enums.TipoMovimiento;
+import com.example.saveup.service.DeudaService;
+import com.example.saveup.repository.DeudaRepository;
 import com.example.saveup.repository.MovimientoRepository;
 import com.example.saveup.repository.UsuarioRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -519,12 +528,13 @@ public class MovimientoService {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    /**
-     * Registra un nuevo movimiento para un usuario.
-     *
-     * @param dto Los datos del movimiento a registrar.
-     * @return Un DTO con la información del movimiento guardado.
-     */
+    @Autowired
+    private DeudaRepository deudaRepository;
+
+    // En un futuro, si implementamos MetaAhorro:
+    // @Autowired
+    // private MetaAhorroRepository metaAhorroRepository;
+
     @Transactional
     public MovimientoResponseDTO registrarMovimiento(MovimientoRegistroDTO dto) {
         // 1. Validar que el usuario exista.
@@ -537,9 +547,42 @@ public class MovimientoService {
         movimiento.setMonto(dto.getMonto());
         movimiento.setDescripcion(dto.getDescripcion());
         movimiento.setTipoMovimiento(dto.getTipoMovimiento());
-        // La fecha se establece automáticamente gracias a la anotación @PrePersist en la entidad.
+        // La fecha se establece automáticamente gracias a @PrePersist.
 
-        // Lógica futura para deudas y metas (se añadiría aquí).
+        // --- LÓGICA DE ASOCIACIÓN CON DEUDAS Y METAS ---
+
+        // Si se proporciona un deudaId, se asocia el movimiento a esa deuda.
+        if (dto.getDeudaId() != null) {
+            // Validación de negocio: Solo los PAGO_DEUDA pueden tener un deudaId.
+            if (dto.getTipoMovimiento() != TipoMovimiento.PAGO_DEUDA) {
+                throw new IllegalArgumentException("El campo 'deudaId' solo es válido para movimientos de tipo PAGO_DEUDA.");
+            }
+            // Se busca la deuda y se asocia.
+            Deuda deuda = deudaRepository.findById(dto.getDeudaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Deuda no encontrada con ID: " + dto.getDeudaId()));
+            movimiento.setDeuda(deuda);
+
+            // Opcional pero recomendado: Verificar si este pago salda la deuda.
+            // Esto crea consistencia si se usa este endpoint en vez del de DeudaService.
+            // Nota: Se realiza una comprobación después de que el movimiento se guarde teóricamente.
+            double nuevoTotalPagado = Math.abs(deudaRepository.findTotalPagadoPorDeuda(deuda.getId())) + Math.abs(dto.getMonto());
+            if (nuevoTotalPagado >= deuda.getMontoTotal()) {
+                deuda.setEstado(EstadoDeuda.PAGADA);
+                deudaRepository.save(deuda);
+            }
+        }
+
+        /*
+        // Si se proporciona un metaId, se asocia el movimiento a esa meta (para el futuro).
+        if (dto.getMetaId() != null) {
+            if (dto.getTipoMovimiento() != TipoMovimiento.ABONO_META && dto.getTipoMovimiento() != TipoMovimiento.RETIRO_META) {
+                throw new IllegalArgumentException("El campo 'metaId' solo es válido para movimientos relacionados con metas.");
+            }
+            MetaAhorro meta = metaAhorroRepository.findById(dto.getMetaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Meta de ahorro no encontrada con ID: " + dto.getMetaId()));
+            movimiento.setMetaAhorro(meta);
+        }
+        */
 
         // 3. Guardar la entidad en la base de datos.
         Movimiento movimientoGuardado = movimientoRepository.save(movimiento);
@@ -550,39 +593,68 @@ public class MovimientoService {
 
     /**
      * Obtiene el historial de movimientos de un usuario.
-     *
-     * @param rut El RUT del usuario.
-     * @return Una lista de DTOs de movimientos, ordenados por fecha descendente.
+     * Si se proporciona un límite, devuelve solo esa cantidad de movimientos recientes.
+     * Si no, devuelve el historial completo.
      */
-    @Transactional(readOnly = true) // readOnly = true optimiza las consultas de solo lectura.
-    public List<MovimientoResponseDTO> obtenerMovimientosPorUsuario(String rut) {
+    @Transactional(readOnly = true)
+    public List<MovimientoResponseDTO> obtenerMovimientosPorUsuario(String rut, Integer limit) {
         if (!usuarioRepository.existsById(rut)) {
             throw new EntityNotFoundException("Usuario no encontrado con RUT: " + rut);
         }
-        List<Movimiento> movimientos = movimientoRepository.findByUsuarioRutOrderByFechaDesc(rut);
-        // Convierte la lista de entidades a una lista de DTOs.
+
+        List<Movimiento> movimientos;
+
+        if (limit != null && limit > 0) {
+            Pageable pageable = PageRequest.of(0, limit);
+            // ¡CORRECCIÓN! Añadimos .getContent() para extraer la lista del objeto Page.
+            movimientos = movimientoRepository.findByUsuarioRutOrderByFechaDesc(rut, pageable).getContent();
+        } else {
+            // Si no hay límite, usamos el método original que devuelve una Lista.
+            movimientos = movimientoRepository.findByUsuarioRutOrderByFechaDesc(rut);
+        }
+
         return movimientos.stream()
                 .map(this::convertirAEntidadResponseDTO)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Calcula y devuelve el saldo actual de un usuario.
-     *
-     * @param rut El RUT del usuario.
-     * @return El saldo total (la suma de todos los montos).
-     */
     @Transactional(readOnly = true)
     public Double obtenerSaldoActual(String rut) {
         if (!usuarioRepository.existsById(rut)) {
             throw new EntityNotFoundException("Usuario no encontrado con RUT: " + rut);
         }
         Double saldo = movimientoRepository.findSaldoByUsuarioRut(rut);
-        // Si un usuario no tiene movimientos, la suma devuelve null. Lo convertimos a 0.0.
         return saldo == null ? 0.0 : saldo;
     }
 
-    // --- Método de utilidad para convertir Entidad -> DTO ---
+    /**
+     * ¡NUEVO MÉTODO!
+     * Obtiene el historial de movimientos de forma paginada.
+     */
+    @Transactional(readOnly = true)
+    public PageResponseDTO<MovimientoResponseDTO> obtenerMovimientosPaginados(String rut, Pageable pageable) {
+        if (!usuarioRepository.existsById(rut)) {
+            throw new EntityNotFoundException("Usuario no encontrado con RUT: " + rut);
+        }
+
+        // 1. Obtenemos la página de entidades desde el repositorio
+        Page<Movimiento> paginaMovimientos = movimientoRepository.findByUsuarioRutOrderByFechaDesc(rut, pageable);
+
+        // 2. Convertimos el contenido de la página a una lista de DTOs
+        List<MovimientoResponseDTO> contenidoDTO = paginaMovimientos.getContent().stream()
+                .map(this::convertirAEntidadResponseDTO)
+                .collect(Collectors.toList());
+
+        // 3. Creamos y devolvemos nuestro DTO de respuesta de página
+        PageResponseDTO<MovimientoResponseDTO> respuesta = new PageResponseDTO<>();
+        respuesta.setContent(contenidoDTO);
+        respuesta.setCurrentPage(paginaMovimientos.getNumber());
+        respuesta.setTotalItems(paginaMovimientos.getTotalElements());
+        respuesta.setTotalPages(paginaMovimientos.getTotalPages());
+
+        return respuesta;
+    }
+
     private MovimientoResponseDTO convertirAEntidadResponseDTO(Movimiento movimiento) {
         MovimientoResponseDTO dto = new MovimientoResponseDTO();
         dto.setId(movimiento.getId());
@@ -593,6 +665,7 @@ public class MovimientoService {
         return dto;
     }
 }
+
 
 Clases adicionales de configuración:
 

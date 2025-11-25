@@ -1,0 +1,451 @@
+## Entidad Deuda en el backend
+
+model:
+package com.example.saveup.model;
+
+import com.example.saveup.model.enums.EstadoDeuda;
+import jakarta.persistence.*;
+import lombok.Data;
+import java.util.Date;
+
+@Entity
+@Table(name = "DEUDA")
+@Data
+public class Deuda {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID_DEUDA")
+    private Long id;
+
+    @Column(name = "NOMBRE", nullable = false, length = 100)
+    private String nombre;
+
+    @Column(name = "DESCRIPCION", length = 255)
+    private String descripcion;
+
+    @Column(name = "MONTO_TOTAL", nullable = false)
+    private double montoTotal;
+
+    @Column(name = "CANTIDAD_CUOTAS", nullable = false)
+    private int cantidadCuotas;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ESTADO", nullable = false)
+    private EstadoDeuda estado;
+
+    @Column(name = "FECHA_CREACION", nullable = false, updatable = false)
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date fechaCreacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "USUARIO_ID", nullable = false)
+    private Usuario usuario;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.fechaCreacion == null) {
+            this.fechaCreacion = new Date();
+        }
+        if (this.estado == null) {
+            this.estado = EstadoDeuda.PENDIENTE;
+        }
+    }
+}
+
+enum:
+package com.example.saveup.model.enums;
+
+public enum EstadoDeuda {
+    PENDIENTE,
+    PAGADA,
+    CANCELADA
+}
+
+Repository:
+package com.example.saveup.repository;
+
+import com.example.saveup.model.Deuda;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import java.util.List;
+
+public interface DeudaRepository extends JpaRepository<Deuda, Long> {
+
+    // Encuentra todas las deudas de un usuario
+    List<Deuda> findByUsuarioRut(String rut);
+
+    // Consulta clave para calcular el total pagado por una deuda específica
+    @Query("SELECT COALESCE(SUM(m.monto), 0.0) FROM Movimiento m WHERE m.deuda.id = :deudaId AND m.tipoMovimiento = 'PAGO_DEUDA'")
+    Double findTotalPagadoPorDeuda(@Param("deudaId") Long deudaId);
+
+    // Consulta para contar las cuotas pagadas
+    @Query("SELECT COUNT(m) FROM Movimiento m WHERE m.deuda.id = :deudaId AND m.tipoMovimiento = 'PAGO_DEUDA'")
+    Integer countPagosPorDeuda(@Param("deudaId") Long deudaId);
+}
+
+DTOs:
+package com.example.saveup.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.Data;
+
+@Data
+public class DeudaCreacionDTO {
+
+    @NotBlank(message = "El nombre de la deuda es obligatorio")
+    private String nombre;
+
+    private String descripcion; // Opcional, sin validación de no nulo
+
+    @NotNull(message = "El monto total es obligatorio")
+    @Positive(message = "El monto total debe ser un número positivo")
+    private Double montoTotal;
+
+    @NotNull(message = "La cantidad de cuotas es obligatoria")
+    @Positive(message = "La cantidad de cuotas debe ser un número positivo")
+    private Integer cantidadCuotas;
+
+    @NotBlank(message = "El RUT del usuario es obligatorio")
+    private String usuarioRut;
+}
+
+package com.example.saveup.dto;
+
+import com.example.saveup.model.enums.EstadoDeuda;
+import lombok.Data;
+import java.util.Date;
+
+@Data
+public class DeudaResponseDTO {
+
+    private Long id;
+    private String nombre;
+    private String descripcion;
+    private double montoTotal;
+    private int cantidadCuotas;
+    private EstadoDeuda estado;
+    private Date fechaCreacion;
+
+    // Campos calculados que se llenarán en el Service
+    private double montoPagado;
+    private double montoRestante;
+    private int cuotasPagadas;
+}
+
+package com.example.saveup.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.Data;
+
+@Data
+public class PagoDeudaDTO {
+
+    @NotNull(message = "El monto del pago es obligatorio")
+    @Positive(message = "El monto del pago debe ser un número positivo")
+    private Double monto;
+
+    @NotBlank(message = "La descripción del pago es obligatoria")
+    private String descripcion;
+}
+
+
+Controller:
+package com.example.saveup.controller;
+
+import com.example.saveup.dto.DeudaCreacionDTO;
+import com.example.saveup.dto.DeudaResponseDTO;
+import com.example.saveup.dto.PagoDeudaDTO;
+import com.example.saveup.service.DeudaService;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/deudas")
+public class DeudaController {
+
+    @Autowired
+    private DeudaService deudaService;
+
+    // Endpoint para crear una nueva deuda
+    @PostMapping
+    public ResponseEntity<?> crearDeuda(@Valid @RequestBody DeudaCreacionDTO dto) {
+        try {
+            DeudaResponseDTO nuevaDeuda = deudaService.crearDeuda(dto);
+            return new ResponseEntity<>(nuevaDeuda, HttpStatus.CREATED);
+        } catch (EntityNotFoundException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        }
+    }
+
+    // Endpoint para obtener todas las deudas de un usuario
+    @GetMapping("/usuario/{rut}")
+    public ResponseEntity<?> obtenerDeudasPorUsuario(@PathVariable String rut) {
+        try {
+            List<DeudaResponseDTO> deudas = deudaService.obtenerDeudasPorUsuario(rut);
+            return ResponseEntity.ok(deudas);
+        } catch (EntityNotFoundException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        }
+    }
+
+    // Endpoint para registrar el pago de una cuota
+    @PostMapping("/{deudaId}/pagar")
+    public ResponseEntity<?> registrarPago(@PathVariable Long deudaId, @Valid @RequestBody PagoDeudaDTO pagoDTO) {
+        try {
+            DeudaResponseDTO deudaActualizada = deudaService.registrarPago(deudaId, pagoDTO);
+            return ResponseEntity.ok(deudaActualizada);
+        } catch (EntityNotFoundException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        } catch (IllegalStateException e) {
+            // Para casos como intentar pagar una deuda ya pagada o cancelada
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.CONFLICT);
+        }
+    }
+
+    // Endpoint para editar una deuda (con restricciones de negocio)
+    @PutMapping("/{deudaId}")
+    public ResponseEntity<?> editarDeuda(@PathVariable Long deudaId, @Valid @RequestBody DeudaCreacionDTO dto) {
+        try {
+            DeudaResponseDTO deudaActualizada = deudaService.editarDeuda(deudaId, dto);
+            return ResponseEntity.ok(deudaActualizada);
+        } catch (EntityNotFoundException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        } catch (IllegalStateException e) {
+            // Si se intenta editar una deuda con pagos
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.CONFLICT);
+        }
+    }
+
+    // Endpoint para cancelar una deuda (soft delete)
+    @PatchMapping("/{deudaId}/cancelar")
+    public ResponseEntity<?> cancelarDeuda(@PathVariable Long deudaId) {
+        try {
+            DeudaResponseDTO deudaCancelada = deudaService.cancelarDeuda(deudaId);
+            return ResponseEntity.ok(deudaCancelada);
+        } catch (EntityNotFoundException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
+        } catch (IllegalStateException e) {
+            return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.CONFLICT);
+        }
+    }
+}
+
+Service:
+package com.example.saveup.service;
+
+import com.example.saveup.dto.DeudaCreacionDTO;
+import com.example.saveup.dto.DeudaResponseDTO;
+import com.example.saveup.dto.PagoDeudaDTO;
+import com.example.saveup.model.Deuda;
+import com.example.saveup.model.Movimiento;
+import com.example.saveup.model.Usuario;
+import com.example.saveup.model.enums.EstadoDeuda;
+import com.example.saveup.model.enums.TipoMovimiento;
+import com.example.saveup.repository.DeudaRepository;
+import com.example.saveup.repository.MovimientoRepository;
+import com.example.saveup.repository.UsuarioRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class DeudaService {
+
+    @Autowired
+    private DeudaRepository deudaRepository;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+    @Autowired
+    private MovimientoRepository movimientoRepository;
+
+    @Transactional
+    public DeudaResponseDTO crearDeuda(DeudaCreacionDTO dto) {
+        Usuario usuario = usuarioRepository.findById(dto.getUsuarioRut())
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado con RUT: " + dto.getUsuarioRut()));
+
+        Deuda deuda = new Deuda();
+        deuda.setUsuario(usuario);
+        deuda.setNombre(dto.getNombre());
+        deuda.setDescripcion(dto.getDescripcion());
+        deuda.setMontoTotal(dto.getMontoTotal());
+        deuda.setCantidadCuotas(dto.getCantidadCuotas());
+        // El estado y la fecha se asignan automáticamente por @PrePersist
+
+        Deuda deudaGuardada = deudaRepository.save(deuda);
+        return convertirADeudaResponseDTO(deudaGuardada);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DeudaResponseDTO> obtenerDeudasPorUsuario(String rut) {
+        if (!usuarioRepository.existsById(rut)) {
+            throw new EntityNotFoundException("Usuario no encontrado con RUT: " + rut);
+        }
+        List<Deuda> deudas = deudaRepository.findByUsuarioRut(rut);
+        return deudas.stream()
+                .map(this::convertirADeudaResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public DeudaResponseDTO registrarPago(Long deudaId, PagoDeudaDTO pagoDTO) {
+        Deuda deuda = deudaRepository.findById(deudaId)
+                .orElseThrow(() -> new EntityNotFoundException("Deuda no encontrada con ID: " + deudaId));
+
+        if (deuda.getEstado() != EstadoDeuda.PENDIENTE) {
+            throw new IllegalStateException("Solo se pueden registrar pagos en deudas pendientes. Estado actual: " + deuda.getEstado());
+        }
+
+        // Crear y guardar el movimiento de pago
+        Movimiento pago = new Movimiento();
+        pago.setUsuario(deuda.getUsuario());
+        pago.setDeuda(deuda);
+        pago.setMonto(pagoDTO.getMonto() * -1); // Los pagos son egresos, por lo tanto negativos
+        pago.setDescripcion(pagoDTO.getDescripcion());
+        pago.setTipoMovimiento(TipoMovimiento.PAGO_DEUDA);
+        movimientoRepository.save(pago);
+
+        // Verificar si la deuda está completamente pagada después del nuevo pago
+        double totalPagado = Math.abs(deudaRepository.findTotalPagadoPorDeuda(deudaId));
+        if (totalPagado >= deuda.getMontoTotal()) {
+            deuda.setEstado(EstadoDeuda.PAGADA);
+            deudaRepository.save(deuda);
+        }
+
+        return convertirADeudaResponseDTO(deuda);
+    }
+
+    @Transactional
+    public DeudaResponseDTO editarDeuda(Long deudaId, DeudaCreacionDTO dto) {
+        Deuda deuda = deudaRepository.findById(deudaId)
+            .orElseThrow(() -> new EntityNotFoundException("Deuda no encontrada con ID: " + deudaId));
+
+        Integer cuotasPagadas = deudaRepository.countPagosPorDeuda(deudaId);
+        if (cuotasPagadas > 0) {
+            throw new IllegalStateException("No se puede editar una deuda que ya tiene pagos registrados.");
+        }
+
+        deuda.setNombre(dto.getNombre());
+        deuda.setDescripcion(dto.getDescripcion());
+        deuda.setMontoTotal(dto.getMontoTotal());
+        deuda.setCantidadCuotas(dto.getCantidadCuotas());
+        Deuda deudaActualizada = deudaRepository.save(deuda);
+
+        return convertirADeudaResponseDTO(deudaActualizada);
+    }
+
+    @Transactional
+    public DeudaResponseDTO cancelarDeuda(Long deudaId) {
+        Deuda deuda = deudaRepository.findById(deudaId)
+            .orElseThrow(() -> new EntityNotFoundException("Deuda no encontrada con ID: " + deudaId));
+
+        if (deuda.getEstado() == EstadoDeuda.PAGADA) {
+             throw new IllegalStateException("No se puede cancelar una deuda que ya fue pagada.");
+        }
+
+        deuda.setEstado(EstadoDeuda.CANCELADA);
+        Deuda deudaCancelada = deudaRepository.save(deuda);
+        return convertirADeudaResponseDTO(deudaCancelada);
+    }
+
+
+    // Método de utilidad para convertir y calcular los campos dinámicos
+    private DeudaResponseDTO convertirADeudaResponseDTO(Deuda deuda) {
+        DeudaResponseDTO dto = new DeudaResponseDTO();
+        dto.setId(deuda.getId());
+        dto.setNombre(deuda.getNombre());
+        dto.setDescripcion(deuda.getDescripcion());
+        dto.setMontoTotal(deuda.getMontoTotal());
+        dto.setCantidadCuotas(deuda.getCantidadCuotas());
+        dto.setEstado(deuda.getEstado());
+        dto.setFechaCreacion(deuda.getFechaCreacion());
+
+        // --- La Magia de los Cálculos en Tiempo Real ---
+        double montoPagadoAbsoluto = Math.abs(deudaRepository.findTotalPagadoPorDeuda(deuda.getId()));
+        dto.setMontoPagado(montoPagadoAbsoluto);
+        dto.setMontoRestante(deuda.getMontoTotal() - montoPagadoAbsoluto);
+        dto.setCuotasPagadas(deudaRepository.countPagosPorDeuda(deuda.getId()));
+
+        return dto;
+    }
+}
+
+Modificación en MovimientoService, función registrarMovimiento:
+@Autowired
+    private DeudaRepository deudaRepository;
+
+    // En un futuro, si implementamos MetaAhorro:
+    // @Autowired
+    // private MetaAhorroRepository metaAhorroRepository;
+
+    @Transactional
+    public MovimientoResponseDTO registrarMovimiento(MovimientoRegistroDTO dto) {
+        // 1. Validar que el usuario exista.
+        Usuario usuario = usuarioRepository.findById(dto.getUsuarioRut())
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado con RUT: " + dto.getUsuarioRut()));
+
+        // 2. Crear la entidad Movimiento a partir del DTO.
+        Movimiento movimiento = new Movimiento();
+        movimiento.setUsuario(usuario);
+        movimiento.setMonto(dto.getMonto());
+        movimiento.setDescripcion(dto.getDescripcion());
+        movimiento.setTipoMovimiento(dto.getTipoMovimiento());
+        // La fecha se establece automáticamente gracias a @PrePersist.
+
+        // --- LÓGICA DE ASOCIACIÓN CON DEUDAS Y METAS ---
+
+        // Si se proporciona un deudaId, se asocia el movimiento a esa deuda.
+        if (dto.getDeudaId() != null) {
+            // Validación de negocio: Solo los PAGO_DEUDA pueden tener un deudaId.
+            if (dto.getTipoMovimiento() != TipoMovimiento.PAGO_DEUDA) {
+                throw new IllegalArgumentException("El campo 'deudaId' solo es válido para movimientos de tipo PAGO_DEUDA.");
+            }
+            // Se busca la deuda y se asocia.
+            Deuda deuda = deudaRepository.findById(dto.getDeudaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Deuda no encontrada con ID: " + dto.getDeudaId()));
+            movimiento.setDeuda(deuda);
+
+            // Opcional pero recomendado: Verificar si este pago salda la deuda.
+            // Esto crea consistencia si se usa este endpoint en vez del de DeudaService.
+            // Nota: Se realiza una comprobación después de que el movimiento se guarde teóricamente.
+            double nuevoTotalPagado = Math.abs(deudaRepository.findTotalPagadoPorDeuda(deuda.getId())) + Math.abs(dto.getMonto());
+            if (nuevoTotalPagado >= deuda.getMontoTotal()) {
+                deuda.setEstado(EstadoDeuda.PAGADA);
+                deudaRepository.save(deuda);
+            }
+        }
+
+        /*
+        // Si se proporciona un metaId, se asocia el movimiento a esa meta (para el futuro).
+        if (dto.getMetaId() != null) {
+            if (dto.getTipoMovimiento() != TipoMovimiento.ABONO_META && dto.getTipoMovimiento() != TipoMovimiento.RETIRO_META) {
+                throw new IllegalArgumentException("El campo 'metaId' solo es válido para movimientos relacionados con metas.");
+            }
+            MetaAhorro meta = metaAhorroRepository.findById(dto.getMetaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Meta de ahorro no encontrada con ID: " + dto.getMetaId()));
+            movimiento.setMetaAhorro(meta);
+        }
+        */
+
+        // 3. Guardar la entidad en la base de datos.
+        Movimiento movimientoGuardado = movimientoRepository.save(movimiento);
+
+        // 4. Convertir la entidad guardada a un DTO de respuesta y devolverla.
+        return convertirAEntidadResponseDTO(movimientoGuardado);
+    }

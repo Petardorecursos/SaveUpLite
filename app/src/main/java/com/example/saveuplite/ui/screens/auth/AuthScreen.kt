@@ -222,17 +222,17 @@ fun AuthScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.3f)
-                .background(PaleAqua),
+                .background(PaleAqua) // Aplica el color de fondo primero
+                .clip(RoundedCornerShape(bottomStart = 50.dp, bottomEnd = 50.dp)), // <-- APLICA EL CLIP AL BOX, NO SOLO A LA IMAGEN. Usando 50.dp para que coincida.
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(id = R.drawable.auth_background),
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)),
+                modifier = Modifier // <-- Ya no necesitas clip aquí, el Box lo aplica a todo su contenido
+                    .fillMaxSize(),
                 contentScale = ContentScale.Crop,
-                alpha = 0.2f // Se aplica transparencia a la imagen
+                alpha = 0.2f
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Hola!", style = MaterialTheme.typography.titleLarge, color = DarkGrayText, fontWeight = FontWeight.Bold)
@@ -245,7 +245,7 @@ fun AuthScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                .clip(RoundedCornerShape(topStart = 60.dp, topEnd = 60.dp))
                 .background(Color.White)
                 .padding(24.dp)
                 .verticalScroll(rememberScrollState()),
@@ -261,7 +261,24 @@ fun AuthScreen(
 
             // --- FORMULARIO ---
             if (!isLoginScreen) {
-                AuthTextField(rut, { rut = it; rutError = null }, "RUT", Icons.Outlined.Person, isError = rutError != null, errorText = rutError, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down)}), visualTransformation = RutVisualTransformation())
+                AuthTextField(
+                    value = rut,
+                    onValueChange = { newValue ->
+                        // Filtra solo dígitos y 'k'/'K', y limita la longitud a 9 caracteres (8 dígitos + verificador)
+                        val filteredValue = newValue.filter { it.isDigit() || it == 'k' || it == 'K' }
+                        if (filteredValue.length <= 9) {
+                            rut = filteredValue
+                            rutError = null
+                        }
+                    },
+                    label = "RUT",
+                    icon = Icons.Outlined.Person,
+                    isError = rutError != null,
+                    errorText = rutError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next), // Cambiado a KeyboardType.Text para permitir 'K'
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down)}),
+                    visualTransformation = RutVisualTransformation()
+                )
                 Spacer(Modifier.height(16.dp))
                 AuthTextField(nombre, { nombre = it; nombreError = null }, "Nombre", Icons.Outlined.Person, isError = nombreError != null, errorText = nombreError, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down)}))
                 Spacer(Modifier.height(16.dp))

@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
 
 // Fondo Principal
 val SoftWhite = Color(0xFFF8F8FA) // Blanco muy suave, casi puro con un toque cálido.
-val LightGray = Color(0xFFF5F5F7) // Gris muy claro alternativo.
+val LightGray = Color(0xFFE8E8ED) // Gris muy claro alternativo.
 
 // Color Primario (Acento)
 val LavenderBlue = Color(0xFF7E8CE7) // Azul lavanda desaturado.
@@ -18,8 +18,9 @@ val PalePink = Color(0xFFF8E7EA)    // Rosa / Salmón Pálido (para "Breakfast",
 val PaleSalmon = Color(0xFFFAEAEF)   // Alternativa al rosa pálido.
 val PaleAqua = Color(0xFFE0F5F2)      // Verde Azulado / Aqua Pálido (para "Sport Data", "Sleep Quality")
 val PaleTeal = Color(0xFFE2F5F4)      // Alternativa al aqua pálido.
-val MediumBlue = Color(0xFFE1E4F9)    // Azul Medio (para "Hearth Health")
+val MediumBlue = Color(0xFFBCBFFA)    // Azul Medio (para "Hearth Health")
 val LightBlueBg = Color(0xFFEAEBFC)   // Alternativa al azul medio.
+val DangerRed = Color(0xFFA63636)
 
 // Gradientes
 val GradientStart = Color(0xFF8F99F5) // Azul para gradiente.

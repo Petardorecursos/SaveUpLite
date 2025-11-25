@@ -216,7 +216,7 @@ private fun DrawerContent(navController: NavHostController, usuarioViewModel: Us
                 onClick = { usuarioViewModel.logout(); navController.navigate(Routes.AUTH) { popUpTo(navController.graph.startDestinationId) { inclusive = true } } },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PalePink, contentColor = DarkGrayText)
+                colors = ButtonDefaults.buttonColors(containerColor = DangerRed, contentColor = DarkGrayText)
             ) { Text("Cerrar Sesión") }
         }
     }

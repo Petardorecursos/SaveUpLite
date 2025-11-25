@@ -17,6 +17,8 @@ import com.example.saveuplite.api.RetrofitClient
 import com.example.saveuplite.ui.screens.auth.AuthScreen
 import com.example.saveuplite.ui.screens.converter.ConverterScreen
 import com.example.saveuplite.ui.screens.dashboard.DashboardScreen
+import com.example.saveuplite.ui.screens.deudas.AddDeudaScreen
+import com.example.saveuplite.ui.screens.deudas.DeudasScreen
 import com.example.saveuplite.ui.screens.history.TransactionHistoryScreen
 import com.example.saveuplite.ui.screens.home.HomeScreen
 import com.example.saveuplite.ui.screens.form.FormScreen
@@ -35,9 +37,10 @@ object Routes {
     
     // --- Nuevas Rutas ---
     const val DEBTS = "debts"
+    const val ADD_DEBT = "add_debt" // <-- NUEVA RUTA
     const val GOALS = "goals"
     const val MARKET = "market"
-    const val CONVERTER = "converter" // <-- NUEVA RUTA
+    const val CONVERTER = "converter"
 
     // --- Rutas Legacy ---
     const val LEGACY_HOME = "legacyhome"
@@ -50,7 +53,6 @@ object Routes {
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
 @Composable
 fun AppNavHost(navController: NavHostController) {
-    // --- CORRECCIÓN ---
     // Para instanciar un ViewModel con un constructor personalizado, necesitamos su Factory.
     val application = LocalContext.current.applicationContext as Application
     val factory = AuthViewModelFactory(RetrofitClient.apiService, application)
@@ -68,7 +70,8 @@ fun AppNavHost(navController: NavHostController) {
         composable(Routes.TRANSACTION_HISTORY) { TransactionHistoryScreen(navController, usuarioViewModel) }
 
         // --- Pantallas Nuevas ---
-        composable(Routes.DEBTS) { PlaceholderScreen(screenName = "Deudas") }
+        composable(Routes.DEBTS) { DeudasScreen(navController, usuarioViewModel) }
+        composable(Routes.ADD_DEBT) { AddDeudaScreen(navController, usuarioViewModel) }
         composable(Routes.GOALS) { PlaceholderScreen(screenName = "Metas de Ahorro") }
         composable(Routes.MARKET) { MarketScreen(navController = navController) }
         composable(Routes.CONVERTER) { ConverterScreen(navController = navController) }

@@ -1,6 +1,9 @@
 package com.example.saveuplite.api
 
 import com.example.saveuplite.model.Usuario
+import com.example.saveuplite.model.deuda.Deuda
+import com.example.saveuplite.model.deuda.DeudaCreacion
+import com.example.saveuplite.model.deuda.PagoDeuda
 import com.example.saveuplite.model.dto.*
 import retrofit2.Response
 import retrofit2.http.*
@@ -40,4 +43,26 @@ interface ApiService {
         @Query("size") size: Int
     ): Response<PageResponseDTO<MovimientoResponseDTO>>
 
+    // --- Endpoints de Deudas ---
+
+    @POST("api/deudas")
+    suspend fun crearDeuda(@Body deudaCreacion: DeudaCreacion): Response<Deuda>
+
+    @GET("api/deudas/usuario/{rut}")
+    suspend fun obtenerDeudasPorUsuario(@Path("rut") rut: String): Response<List<Deuda>>
+
+    @POST("api/deudas/{deudaId}/pagar")
+    suspend fun registrarPagoDeuda(
+        @Path("deudaId") deudaId: Long,
+        @Body pagoDeuda: PagoDeuda
+    ): Response<Deuda>
+
+    @PUT("api/deudas/{deudaId}")
+    suspend fun editarDeuda(
+        @Path("deudaId") deudaId: Long,
+        @Body deudaCreacion: DeudaCreacion
+    ): Response<Deuda>
+
+    @PATCH("api/deudas/{deudaId}/cancelar")
+    suspend fun cancelarDeuda(@Path("deudaId") deudaId: Long): Response<Deuda>
 }
