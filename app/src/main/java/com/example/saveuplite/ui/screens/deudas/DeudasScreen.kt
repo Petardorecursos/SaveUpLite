@@ -136,6 +136,14 @@ fun DeudasScreen(
 
 @Composable
 fun DeudaItem(deuda: Deuda, onPagarClick: (Deuda) -> Unit) {
+    // --- CÁLCULO CORRECTO DE CUOTAS PAGADAS ---
+    val valorCuota = if (deuda.cantidadCuotas > 0) deuda.montoTotal / deuda.cantidadCuotas else 0.0
+    val cuotasPagadasReales = if (valorCuota > 0) {
+        (deuda.montoPagado / valorCuota).toInt() // División entera (floor)
+    } else {
+        if (deuda.montoPagado >= deuda.montoTotal) deuda.cantidadCuotas else 0
+    }.coerceAtMost(deuda.cantidadCuotas) // Asegura no mostrar más cuotas que el total
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -179,8 +187,9 @@ fun DeudaItem(deuda: Deuda, onPagarClick: (Deuda) -> Unit) {
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+                // --- USO DEL VALOR CALCULADO ---
                 Text(
-                    text = "${deuda.cuotasPagadas} de ${deuda.cantidadCuotas} cuotas pagadas",
+                    text = "${cuotasPagadasReales} de ${deuda.cantidadCuotas} cuotas pagadas",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -205,11 +214,19 @@ fun PagoDeudaDialog(
     onDismiss: () -> Unit,
     onConfirm: (monto: Double, descripcion: String) -> Unit
 ) {
+    // --- CÁLCULO CORRECTO DE CUOTAS PARA LA DESCRIPCIÓN Y EL PAGO SUGERIDO ---
+    val valorCuota = if (deuda.cantidadCuotas > 0) deuda.montoTotal / deuda.cantidadCuotas else 0.0
+    val cuotasPagadasReales = if (valorCuota > 0) {
+        (deuda.montoPagado / valorCuota).toInt()
+    } else {
+        if (deuda.montoPagado >= deuda.montoTotal) deuda.cantidadCuotas else 0
+    }.coerceAtMost(deuda.cantidadCuotas)
+
     var monto by remember { mutableStateOf("") }
-    var descripcion by remember { mutableStateOf("Pago cuota ${deuda.cuotasPagadas + 1}") }
+    var descripcion by remember { mutableStateOf("Pago cuota ${cuotasPagadasReales + 1}") }
     var opcionPago by remember { mutableStateOf(OpcionPago.CUOTA) }
 
-    val cuotasRestantes = deuda.cantidadCuotas - deuda.cuotasPagadas
+    val cuotasRestantes = deuda.cantidadCuotas - cuotasPagadasReales
     val montoCuotaCalculado = remember(deuda) {
         if (cuotasRestantes > 0) {
             ceil(deuda.montoRestante / cuotasRestantes)
@@ -231,7 +248,6 @@ fun PagoDeudaDialog(
         title = { Text("Pagar: ${deuda.nombre}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Contenedor vertical para los Radio Buttons
                 Column {
                     OpcionPago.values().forEach { opcion ->
                         Row(
