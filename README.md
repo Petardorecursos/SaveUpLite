@@ -1,52 +1,101 @@
 # SaveUp Lite
 
-**Integrantes:** Ricardo Henriquez y Hans Gomez  
-**Link Trello:** [https://trello.com/invite/b/68f6ed701025ea0dc520174f/ATTI84ea356b881b93bd5746b75b1c2c2a3e3E37BAA7/saveuplite](https://trello.com/invite/b/68f6ed701025ea0dc520174f/ATTI84ea356b881b93bd5746b75b1c2c2a3e3E37BAA7/saveuplite)  
-**Link Github:** [https://github.com/Petardorecursos/SaveUpLite](https://github.com/Petardorecursos/SaveUpLite)
+**Autores:** Ricardo Henríquez, Hans Gómez  
+**Trello:** [Enlace al Trello del Proyecto](https://trello.com/invite/b/68f6ed701025ea0dc520174f/ATTI84ea356b881b93bd5746b75b1c2c2a3e3E37BAA7/saveuplite)  
+**Repositorio Frontend (Android):** [Petardorecursos/SaveUpLite-Android](https://github.com/Petardorecursos/SaveUpLite)  
+**Repositorio Backend (Spring Boot):** * https://github.com/ItsMilkey/LITE *
 
 ---
 
-## ¿Que es SaveUp Lite?
+## 1. ¿Qué es SaveUp Lite?
 
-**SaveUp Lite** es una aplicación móvil diseñada para la gestión financiera personal de una forma ágil y sencilla.
+**SaveUp Lite** es una aplicación de finanzas personales, nativa de Android, diseñada para ofrecer una gestión financiera ágil y centrada en el usuario. A diferencia de aplicaciones más complejas, SaveUp Lite se enfoca en la simplicidad y eficiencia para el registro de transacciones diarias y el seguimiento de obligaciones financieras.
 
-Este proyecto nació como una alternativa directa a nuestra aplicación original y más completa, **"SaveUp"**. Mientras que la versión completa de SaveUp ofrece un conjunto robusto de herramientas que incluyen presupuestos detallados, control de deudas y reportes mensuales avanzados, **SaveUp Lite** se enfoca exclusivamente en la funcionalidad principal: el seguimiento de ingresos y gastos diarios.
-
-Hemos usado la esencia original de SaveUp en la gestión financiera en una interfaz limpia e intuitiva, eliminando la complejidad para ofrecer una experiencia de usuario rápida y eficiente. Es la herramienta perfecta para estudiantes, jóvenes profesionales o cualquier persona que busque tomar el control de sus finanzas sin sentirse abrumado.
+Construida con tecnologías modernas, la aplicación se conecta a un robusto backend desarrollado en Spring Boot, siguiendo una arquitectura orientada a servicios que garantiza la integridad y seguridad de los datos.
 
 ---
 
-## Funciones implementadas
+## 2. Características Implementadas
 
-* ✅ **Registro Instantáneo:** Añade transacciones de ingresos o gastos en segundos.
-* 📊 **Visión Clara:** Un panel principal que muestra tu balance y tus últimos movimientos sin distracciones.
-* 📱 **Diseño Minimalista:** Una interfaz limpia y directa, pensada para la velocidad y la facilidad de uso.
-* 🔐 **Persistencia Local:** Todos tus datos se guardan de forma segura en tu propio dispositivo utilizando `localStorage`.
-* 📍 **Geolocalización Integrada:** Mapa integrado siempre util ahora integrado tambien dentro de tu app SaveUp Lite  , utilizando los servicios de geolocalización de tu dispositivo.
-* 🔔 **Notificaciones Nativas:** Recibe alertas directamente en tu dispositivo para mantenerte al día con tus finanzas.
+*    **Autenticación de Usuarios:** Registro y login seguros contra el backend.
+*    **Dashboard Principal:** Visualización inmediata del saldo actual y un historial de los últimos movimientos registrados.
+*    **Gestión de Transacciones:** Registro rápido de ingresos y gastos generales a través de un diálogo intuitivo.
+*    **Historial Paginado:** Una pantalla dedicada para ver todo el historial de movimientos, con carga paginada para un rendimiento óptimo.
+*    **Módulo de Gestión de Deudas (Completo):
+    *   **Creación y visualización** de deudas con monto total y número de cuotas.
+    *   **Seguimiento de progreso** con una barra visual y un indicador "X de Y cuotas pagadas" que se calcula en tiempo real basado en el monto pagado.
+    *   **Registro de pagos** con un sistema flexible que permite al usuario pagar el monto de la cuota calculado o un monto personalizado.
+*    **Conversor de Moneda:** Herramienta útil para conversiones rápidas.
+*    **Navegación Intuitiva:** Interfaz limpia y moderna construida con Jetpack Compose y Material 3, con una barra de navegación inferior y un menú lateral.
 
 ---
 
-## Pasos para Ejecutar el Proyecto
+## 3. Arquitectura y Stack Tecnológico
 
-Sigue estas instrucciones para obtener una copia local del proyecto y ejecutarla en Android Studio.
+El proyecto sigue una arquitectura cliente-servidor desacoplada.
 
-### **1. Prerrequisitos**
+### Frontend (Android)
+*   **Lenguaje:** Kotlin
+*   **UI:** Jetpack Compose (declarativa y moderna)
+*   **Arquitectura:** MVVM (Model-View-ViewModel)
+*   **Asincronía:** Kotlin Coroutines y Flow para gestionar operaciones en segundo plano y flujos de datos reactivos.
+*   **Navegación:** Jetpack Navigation Compose.
+*   **Networking:** Retrofit y Gson para la comunicación con la API REST.
+*   **Diseño:** Material 3.
 
-Asegurate tener instalado android studio y git instalado en tu dispositivo
+### Backend (Spring Boot)
+*   **Framework:** Spring Boot
+*   **Lenguaje:** Java
+*   **Base de Datos:** PostgreSQL (Producción) / Oracle (Desarrollo).
+*   **Arquitectura:** API REST siguiendo un modelo orientado a transacciones, donde el saldo y otros valores son cálculos derivados del historial de movimientos, garantizando la integridad de los datos.
+*   **Despliegue:** Contenerizado con Docker y desplegado en la plataforma Render.
 
-### **2. Instalación y Configuración**
+---
 
-- Inicia android studio  
-- Dentro de proyect toca Clone repository  
-- Dentro de repository URL: En url copia el link a nuestro git: https://github.com/Petardorecursos/SaveUpLite  
-- Pon tu ruta preferida para guardar esta clonacion de el proyecto  
-- Toca clonar proyecto o next  
-- Espera que se importe todo lo necesario  
-- Arriba a la derecha toca device manager (justo abajo del elefante)  
-- Crea un dispositivo virtual y inicia el dispotivo virtual  
-- En cuanto este en el home del dispositivo virtual toca run app (Boton play arriba de android studio)
+## 4. Pasos para Ejecutar el Proyecto
 
-Android Studio compilará el código, instalará el APK en el dispositivo seleccionado y lanzará la aplicación automáticamente.
+Para ejecutar el proyecto completo, necesitas tener tanto el backend como el frontend funcionando.
 
-¡Y listo! Ahora deberías tener la aplicación **SaveUp Lite** corriendo en dispositivo virtual.
+### 4.1. Ejecutar el Backend
+
+1.  Clona el repositorio del backend: `git clone <URL_DEL_REPO_BACKEND>`.
+2.  Abre el proyecto en tu IDE preferido (ej. IntelliJ IDEA).
+3.  Configura el archivo `application.properties` o `application-dev.properties` con los datos de conexión a tu base de datos (Oracle o PostgreSQL).
+4.  Ejecuta la aplicación Spring Boot.
+
+Por defecto, el servidor se iniciará en `http://localhost:8080`.
+
+### 4.2. Ejecutar la App Android (Frontend)
+
+1.  **Clonar el Repositorio:**
+    
+    git clone https://github.com/Petardorecursos/SaveUpLite.git
+
+2.  **Abrir en Android Studio:** Abre el proyecto clonado con la última versión estable de Android Studio.
+
+3.  **Configurar la Conexión al Backend (¡Paso Clave!):**
+    *   Abre el archivo `app/src/main/java/com/example/saveuplite/api/RetrofitClient.kt`.
+    *   Modifica la constante `BASE_URL` para que apunte a la dirección de tu backend.
+        *   **Si usas un Emulador de Android:** La dirección para `localhost` es `http://10.0.2.2:8080/`.
+        *   **Si usas un Dispositivo Físico:** Debes usar la dirección IP de tu máquina en la red local. Asegúrate de que tu dispositivo y tu computadora estén en la misma red Wi-Fi. La URL se verá así: `http://192.168.1.105:8080/` (reemplaza con tu IP).
+
+4.  **Ejecutar la App:**
+    *   Selecciona un emulador o un dispositivo físico conectado.
+    *   Presiona "Run 'app'" (Shift + F10).
+
+Android Studio compilará el código, instalará la aplicación y la ejecutará en el dispositivo seleccionado.
+
+---
+
+## 5. Estructura del Proyecto (Frontend)
+
+El código fuente de la aplicación Android está organizado en los siguientes paquetes principales:
+
+-   `com.example.saveuplite`
+    -   `api/`: Contiene la configuración de Retrofit (`RetrofitClient`) y la interfaz `ApiService` que define los endpoints de la API.
+    -   `model/`: Contiene las clases de datos (`data class`) que representan las entidades del negocio (Usuario, Deuda, Movimiento, etc.).
+    -   `ui/`: Contiene todos los componentes de la interfaz de usuario construidos con Jetpack Compose.
+        -   `screens/`: Cada subpaquete corresponde a una pantalla o funcionalidad principal (auth, dashboard, deudas, etc.).
+        -   `navigation/`: Define el grafo de navegación (`NavGraph`) y las rutas de la aplicación.
+        -   `theme/` y `utils/`: Temas de la aplicación y clases de utilidad (ej. `NumberVisualTransformation`).
+    -   `viewmodel/`: Contiene las clases `ViewModel`, que gestionan el estado y la lógica de la UI, siguiendo el patrón MVVM.
