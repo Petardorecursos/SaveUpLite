@@ -14,8 +14,8 @@ object RetrofitClient {
     // Para testear con un backend local en un dispositivo físico,
     // reemplaza "TU_IP_LOCAL" con la dirección IPv4 de tu computador.
     // Ejemplo: "http://192.168.1.105:8080/"
-     //private const val BASE_URL = "http://192.168.18.8:8080/"
-    private const val BASE_URL = "https://lite-backend-1wn9.onrender.com/"
+     private const val BASE_URL = "http://192.168.18.8:8080/"
+    //private const val BASE_URL = "https://lite-backend-1wn9.onrender.com/"
 
     // Creación de la instancia de Retrofit usando un inicializador "lazy".
     private val retrofit: Retrofit by lazy {

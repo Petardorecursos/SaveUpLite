@@ -13,6 +13,8 @@ data class MovimientoRegistroDTO(
     val usuarioRut: String,
 
     // Opcionales, para futuras implementaciones
+    // Opcionales, para futuras implementaciones
     val deudaId: Long? = null,
-    val metaId: Long? = null
+    val metaId: Long? = null,
+    val categoriaId: Long? = null
 )

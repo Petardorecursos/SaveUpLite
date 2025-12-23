@@ -54,10 +54,8 @@ import org.springframework.stereotype.Repository;import java.util.Optional;
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, String> {
 
-    // Método para buscar por email de forma eficiente. Clave para el login.
     Optional<Usuario> findByEmail(String email);
 
-    // Método para verificar si un email ya existe.
     boolean existsByEmail(String email);
 }
 
@@ -128,7 +126,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.saveup.dto.UsuarioLoginDTO;
 import com.example.saveup.model.Usuario;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 
@@ -143,13 +140,10 @@ public class UsuarioController {
     public ResponseEntity<?> registerUsuario(@Valid @RequestBody UsuarioRegistroDTO usuarioDTO) {
         try {
             usuarioService.registrarUsuario(usuarioDTO);
-            // Respuesta exitosa sin devolver datos sensibles.
             return new ResponseEntity<>(Map.of("message", "Usuario registrado exitosamente"), HttpStatus.CREATED);
         } catch (IllegalStateException e) {
-            // Error de negocio (ej. RUT o email duplicado).
             return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.CONFLICT);
         } catch (Exception e) {
-            // Captura de cualquier otro error inesperado.
             return new ResponseEntity<>(Map.of("error", "Ocurrió un error inesperado en el servidor."), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -158,15 +152,9 @@ public class UsuarioController {
     public ResponseEntity<?> loginUsuario(@Valid @RequestBody UsuarioLoginDTO loginDTO) {
         try {
             Usuario usuario = usuarioService.autenticarUsuario(loginDTO);
-
-            // ¡IMPORTANTE! NUNCA DEVUELVAS LA CONTRASEÑA, NI SIQUIERA EL HASH.
-            // Al poner el campo en null, el JSON de respuesta no lo incluirá.
             usuario.setContrasena(null);
-
             return ResponseEntity.ok(usuario);
-
         } catch (BadCredentialsException e) {
-            // Si las credenciales son incorrectas, devolvemos un error 401 Unauthorized.
             return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.UNAUTHORIZED);
         }
     }
@@ -194,14 +182,6 @@ public class UsuarioService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    /**
-     * Registra un nuevo usuario en el sistema.
-     * Valida la existencia, codifica la contraseña y guarda el nuevo usuario.
-     *
-     * @param usuarioDTO Datos del usuario provenientes del frontend.
-     * @return El usuario guardado en la base de datos.
-     * @throws IllegalStateException si el RUT o el email ya están en uso.
-     */
     public Usuario registrarUsuario(UsuarioRegistroDTO usuarioDTO) {
         if (usuarioRepository.existsById(usuarioDTO.getRut())) {
             throw new IllegalStateException("El RUT ingresado ya está registrado.");
@@ -216,34 +196,21 @@ public class UsuarioService {
         nuevoUsuario.setApellido(usuarioDTO.getApellido());
         nuevoUsuario.setEmail(usuarioDTO.getEmail());
 
-        // --- PUNTO CLAVE DE SEGURIDAD ---
-        // Codificar la contraseña antes de guardarla.
         nuevoUsuario.setContrasena(passwordEncoder.encode(usuarioDTO.getContrasena()));
 
         return usuarioRepository.save(nuevoUsuario);
     }
 
-    /**
-     * Autentica a un usuario comparando las credenciales con la base de datos.
-     *
-     * @param loginDTO Objeto con el email y la contraseña.
-     * @return El objeto Usuario si las credenciales son correctas.
-     * @throws BadCredentialsException si el usuario no existe o la contraseña es incorrecta.
-     */
     public Usuario autenticarUsuario(UsuarioLoginDTO loginDTO) {
-        // Busca al usuario por email. Si no lo encuentra, lanza excepción.
         Usuario usuario = usuarioRepository.findByEmail(loginDTO.getEmail())
                 .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas."));
 
-        // Compara la contraseña del DTO con la contraseña hasheada de la BD.
         if (passwordEncoder.matches(loginDTO.getContrasena(), usuario.getContrasena())) {
-            return usuario; // Si coinciden, devuelve el usuario.
+            return usuario;
         } else {
-            // Si no coinciden, lanza la misma excepción para no dar pistas a atacantes.
             throw new BadCredentialsException("Credenciales inválidas.");
         }
     }
-
 }
 
 
@@ -267,12 +234,12 @@ import java.util.Date;
 public class Movimiento {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // Ideal para IDs numéricos autoincrementales
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "ID_MOVIMIENTO")
     private Long id;
 
     @Column(name = "MONTO", nullable = false)
-    private double monto; // Positivo para ingresos, negativo para gastos
+    private double monto;
 
     @Column(name = "DESCRIPCION", nullable = false, length = 100)
     private String descripcion;
@@ -281,27 +248,21 @@ public class Movimiento {
     @Temporal(TemporalType.TIMESTAMP)
     private Date fecha;
 
-    @Enumerated(EnumType.STRING) // Le dice a JPA que guarde el nombre del enum ("GASTO_GENERAL")
+    @Enumerated(EnumType.STRING)
     @Column(name = "TIPO_MOVIMIENTO", nullable = false)
     private TipoMovimiento tipoMovimiento;
 
-    // --- Relación Clave ---
-    // Muchos movimientos pueden pertenecer a Un usuario.
-    @ManyToOne(fetch = FetchType.LAZY) // LAZY para no cargar el usuario a menos que se necesite
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "USUARIO_ID", nullable = false)
     private Usuario usuario;
 
-    /*
-    // --- Relaciones Futuras (Descomentar cuando creemos Deuda y MetaAhorro) ---
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "DEUDA_ID") // Será FK a la tabla DEUDA
+    @JoinColumn(name = "DEUDA_ID")
     private Deuda deuda;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "META_ID") // Será FK a la tabla META_AHORRO
-    private MetaAhorro metaAhorro;
-    */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "CATEGORIA_ID")
+    private Categoria categoria;
 
     @PrePersist
     protected void onCreate() {
@@ -314,10 +275,6 @@ public class Movimiento {
 enum:
 package com.example.saveup.model.enums;
 
-/**
- * Enum para categorizar los diferentes tipos de transacciones monetarias.
- * Esto permite un filtrado y una lógica de negocio más claros.
- */
 public enum TipoMovimiento {
     INGRESO_GENERAL,
     GASTO_GENERAL,
@@ -328,9 +285,10 @@ public enum TipoMovimiento {
 
 
 repositorio:
-package com.example.saveup.repository;
-
+package com.example.saveup.repository;import com.example.saveup.model.Deuda;
 import com.example.saveup.model.Movimiento;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -341,26 +299,13 @@ import java.util.List;
 @Repository
 public interface MovimientoRepository extends JpaRepository<Movimiento, Long> {
 
-    /**
-     * Busca todos los movimientos asociados a un RUT de usuario específico.
-     * Spring Data JPA infiere la consulta a partir del nombre del método.
-     * Ordena los resultados por fecha en orden descendente para mostrar los más recientes primero.
-     *
-     * @param rut El RUT del usuario.
-     * @return Una lista de movimientos.
-     */
     List<Movimiento> findByUsuarioRutOrderByFechaDesc(String rut);
+    
+    Page<Movimiento> findByUsuarioRutOrderByFechaDesc(String rut, Pageable pageable);
 
-    /**
-     * Calcula la suma de todos los montos de los movimientos para un usuario específico.
-     * Esta es la consulta clave para obtener el saldo actual del usuario.
-     * Usamos una consulta JPQL personalizada con la anotación @Query.
-     *
-     * @param rut El RUT del usuario.
-     * @return Un Double que representa el saldo total. Puede ser null si no hay movimientos.
-     */
     @Query("SELECT SUM(m.monto) FROM Movimiento m WHERE m.usuario.rut = :rut")
     Double findSaldoByUsuarioRut(@Param("rut") String rut);
+    List<Movimiento> findByDeuda(Deuda deuda);
 
 }
 
@@ -387,9 +332,9 @@ public class MovimientoRegistroDTO {
     @NotBlank(message = "El RUT del usuario es obligatorio")
     private String usuarioRut;
 
-    // Opcional: Se usarán cuando implementemos deudas y metas
     private Long deudaId;
     private Long metaId;
+    private Long categoriaId;
 }
 
 
@@ -397,13 +342,17 @@ package com.example.saveup.dto;
 
 import com.example.saveup.model.enums.TipoMovimiento;
 import lombok.Data;
-import java.util.Date;@Data
+import java.util.Date;
+import com.example.saveup.dto.CategoriaDTO;
+
+@Data
 public class MovimientoResponseDTO {
     private Long id;
     private double monto;
     private String descripcion;
     private Date fecha;
     private TipoMovimiento tipoMovimiento;
+    private CategoriaDTO categoria;
 }
 
 
@@ -430,9 +379,6 @@ public class MovimientoController {
     @Autowired
     private MovimientoService movimientoService;
 
-    /**
-     * Endpoint para registrar un nuevo movimiento (ingreso o gasto).
-     */
     @PostMapping
     public ResponseEntity<?> registrarMovimiento(@Valid @RequestBody MovimientoRegistroDTO dto) {
         try {
@@ -445,13 +391,10 @@ public class MovimientoController {
         }
     }
 
-    /**
-     * Endpoint para obtener todos los movimientos de un usuario por su RUT.
-     */
     @GetMapping("/usuario/{rut}")
-    public ResponseEntity<?> obtenerMovimientosPorUsuario(@PathVariable String rut) {
+    public ResponseEntity<?> obtenerMovimientosPorUsuario(@PathVariable String rut, @RequestParam(required = false) Integer limit) {
         try {
-            List<MovimientoResponseDTO> movimientos = movimientoService.obtenerMovimientosPorUsuario(rut);
+            List<MovimientoResponseDTO> movimientos = movimientoService.obtenerMovimientosPorUsuario(rut, limit);
             return ResponseEntity.ok(movimientos);
         } catch (EntityNotFoundException e) {
             return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
@@ -476,16 +419,12 @@ import java.util.Map;
 public class SaldoController {
 
     @Autowired
-    private MovimientoService movimientoService; // Reutilizamos el mismo servicio
+    private MovimientoService movimientoService;
 
-    /**
-     * Endpoint para obtener el saldo actual y total de un usuario por su RUT.
-     */
     @GetMapping("/{rut}")
     public ResponseEntity<?> obtenerSaldoActual(@PathVariable String rut) {
         try {
             Double saldo = movimientoService.obtenerSaldoActual(rut);
-            // Devolvemos un objeto JSON para mantener la consistencia en la API.
             return ResponseEntity.ok(Map.of("saldo", saldo));
         } catch (EntityNotFoundException e) {
             return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.NOT_FOUND);
@@ -496,6 +435,7 @@ public class SaldoController {
 service:
 package com.example.saveup.service;
 
+import com.example.saveup.dto.CategoriaDTO;
 import com.example.saveup.dto.MovimientoRegistroDTO;
 import com.example.saveup.dto.MovimientoResponseDTO;
 import com.example.saveup.dto.PageResponseDTO;
@@ -504,7 +444,6 @@ import com.example.saveup.model.Movimiento;
 import com.example.saveup.model.Usuario;
 import com.example.saveup.model.enums.EstadoDeuda;
 import com.example.saveup.model.enums.TipoMovimiento;
-import com.example.saveup.service.DeudaService;
 import com.example.saveup.repository.DeudaRepository;
 import com.example.saveup.repository.MovimientoRepository;
 import com.example.saveup.repository.UsuarioRepository;
@@ -527,44 +466,32 @@ public class MovimientoService {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+    
+    @Autowired
+    private DeudaRepository deudaRepository; 
 
     @Autowired
-    private DeudaRepository deudaRepository;
-
-    // En un futuro, si implementamos MetaAhorro:
-    // @Autowired
-    // private MetaAhorroRepository metaAhorroRepository;
+    private com.example.saveup.repository.CategoriaRepository categoriaRepository;
 
     @Transactional
     public MovimientoResponseDTO registrarMovimiento(MovimientoRegistroDTO dto) {
-        // 1. Validar que el usuario exista.
         Usuario usuario = usuarioRepository.findById(dto.getUsuarioRut())
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado con RUT: " + dto.getUsuarioRut()));
 
-        // 2. Crear la entidad Movimiento a partir del DTO.
         Movimiento movimiento = new Movimiento();
         movimiento.setUsuario(usuario);
         movimiento.setMonto(dto.getMonto());
         movimiento.setDescripcion(dto.getDescripcion());
         movimiento.setTipoMovimiento(dto.getTipoMovimiento());
-        // La fecha se establece automáticamente gracias a @PrePersist.
 
-        // --- LÓGICA DE ASOCIACIÓN CON DEUDAS Y METAS ---
-
-        // Si se proporciona un deudaId, se asocia el movimiento a esa deuda.
         if (dto.getDeudaId() != null) {
-            // Validación de negocio: Solo los PAGO_DEUDA pueden tener un deudaId.
             if (dto.getTipoMovimiento() != TipoMovimiento.PAGO_DEUDA) {
                 throw new IllegalArgumentException("El campo 'deudaId' solo es válido para movimientos de tipo PAGO_DEUDA.");
             }
-            // Se busca la deuda y se asocia.
             Deuda deuda = deudaRepository.findById(dto.getDeudaId())
                     .orElseThrow(() -> new EntityNotFoundException("Deuda no encontrada con ID: " + dto.getDeudaId()));
             movimiento.setDeuda(deuda);
 
-            // Opcional pero recomendado: Verificar si este pago salda la deuda.
-            // Esto crea consistencia si se usa este endpoint en vez del de DeudaService.
-            // Nota: Se realiza una comprobación después de que el movimiento se guarde teóricamente.
             double nuevoTotalPagado = Math.abs(deudaRepository.findTotalPagadoPorDeuda(deuda.getId())) + Math.abs(dto.getMonto());
             if (nuevoTotalPagado >= deuda.getMontoTotal()) {
                 deuda.setEstado(EstadoDeuda.PAGADA);
@@ -572,30 +499,17 @@ public class MovimientoService {
             }
         }
 
-        /*
-        // Si se proporciona un metaId, se asocia el movimiento a esa meta (para el futuro).
-        if (dto.getMetaId() != null) {
-            if (dto.getTipoMovimiento() != TipoMovimiento.ABONO_META && dto.getTipoMovimiento() != TipoMovimiento.RETIRO_META) {
-                throw new IllegalArgumentException("El campo 'metaId' solo es válido para movimientos relacionados con metas.");
-            }
-            MetaAhorro meta = metaAhorroRepository.findById(dto.getMetaId())
-                    .orElseThrow(() -> new EntityNotFoundException("Meta de ahorro no encontrada con ID: " + dto.getMetaId()));
-            movimiento.setMetaAhorro(meta);
+        if (dto.getCategoriaId() != null) {
+            com.example.saveup.model.Categoria categoria = categoriaRepository.findById(dto.getCategoriaId())
+                    .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con ID: " + dto.getCategoriaId()));
+            movimiento.setCategoria(categoria);
         }
-        */
 
-        // 3. Guardar la entidad en la base de datos.
         Movimiento movimientoGuardado = movimientoRepository.save(movimiento);
 
-        // 4. Convertir la entidad guardada a un DTO de respuesta y devolverla.
         return convertirAEntidadResponseDTO(movimientoGuardado);
     }
 
-    /**
-     * Obtiene el historial de movimientos de un usuario.
-     * Si se proporciona un límite, devuelve solo esa cantidad de movimientos recientes.
-     * Si no, devuelve el historial completo.
-     */
     @Transactional(readOnly = true)
     public List<MovimientoResponseDTO> obtenerMovimientosPorUsuario(String rut, Integer limit) {
         if (!usuarioRepository.existsById(rut)) {
@@ -606,10 +520,8 @@ public class MovimientoService {
 
         if (limit != null && limit > 0) {
             Pageable pageable = PageRequest.of(0, limit);
-            // ¡CORRECCIÓN! Añadimos .getContent() para extraer la lista del objeto Page.
             movimientos = movimientoRepository.findByUsuarioRutOrderByFechaDesc(rut, pageable).getContent();
         } else {
-            // Si no hay límite, usamos el método original que devuelve una Lista.
             movimientos = movimientoRepository.findByUsuarioRutOrderByFechaDesc(rut);
         }
 
@@ -627,34 +539,27 @@ public class MovimientoService {
         return saldo == null ? 0.0 : saldo;
     }
 
-    /**
-     * ¡NUEVO MÉTODO!
-     * Obtiene el historial de movimientos de forma paginada.
-     */
     @Transactional(readOnly = true)
     public PageResponseDTO<MovimientoResponseDTO> obtenerMovimientosPaginados(String rut, Pageable pageable) {
         if (!usuarioRepository.existsById(rut)) {
             throw new EntityNotFoundException("Usuario no encontrado con RUT: " + rut);
         }
-
-        // 1. Obtenemos la página de entidades desde el repositorio
+        
         Page<Movimiento> paginaMovimientos = movimientoRepository.findByUsuarioRutOrderByFechaDesc(rut, pageable);
-
-        // 2. Convertimos el contenido de la página a una lista de DTOs
+        
         List<MovimientoResponseDTO> contenidoDTO = paginaMovimientos.getContent().stream()
                 .map(this::convertirAEntidadResponseDTO)
                 .collect(Collectors.toList());
 
-        // 3. Creamos y devolvemos nuestro DTO de respuesta de página
         PageResponseDTO<MovimientoResponseDTO> respuesta = new PageResponseDTO<>();
         respuesta.setContent(contenidoDTO);
         respuesta.setCurrentPage(paginaMovimientos.getNumber());
         respuesta.setTotalItems(paginaMovimientos.getTotalElements());
         respuesta.setTotalPages(paginaMovimientos.getTotalPages());
-
+        
         return respuesta;
     }
-
+    
     private MovimientoResponseDTO convertirAEntidadResponseDTO(Movimiento movimiento) {
         MovimientoResponseDTO dto = new MovimientoResponseDTO();
         dto.setId(movimiento.getId());
@@ -662,362 +567,172 @@ public class MovimientoService {
         dto.setDescripcion(movimiento.getDescripcion());
         dto.setFecha(movimiento.getFecha());
         dto.setTipoMovimiento(movimiento.getTipoMovimiento());
+
+        if (movimiento.getCategoria() != null) {
+            CategoriaDTO categoriaDTO = new CategoriaDTO();
+            categoriaDTO.setId(movimiento.getCategoria().getId());
+            categoriaDTO.setNombre(movimiento.getCategoria().getNombre());
+            categoriaDTO.setIconId(movimiento.getCategoria().getIconId());
+            categoriaDTO.setColorHex(movimiento.getCategoria().getColorHex());
+            dto.setCategoria(categoriaDTO);
+        }
+
         return dto;
+    }
+}
+
+
+Clase Categoria y sus clases respectivas:
+
+model:
+package com.example.saveup.model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "CATEGORIA")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Categoria {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID_CATEGORIA")
+    private Long id;
+
+    @Column(name = "NOMBRE", nullable = false, unique = true)
+    private String nombre;
+
+    @Column(name = "ICON_ID")
+    private String iconId;
+
+    @Column(name = "COLOR_HEX")
+    private String colorHex;
+}
+
+
+repository:
+package com.example.saveup.repository;
+
+import com.example.saveup.model.Categoria;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.Optional;
+
+@Repository
+public interface CategoriaRepository extends JpaRepository<Categoria, Long> {
+    Optional<Categoria> findByNombre(String nombre);
+}
+
+
+service:
+package com.example.saveup.service;
+
+import com.example.saveup.dto.CategoriaDTO;
+import com.example.saveup.model.Categoria;
+import com.example.saveup.repository.CategoriaRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class CategoriaService {
+
+    @Autowired
+    private CategoriaRepository categoriaRepository;
+
+    @Transactional(readOnly = true)
+    public List<CategoriaDTO> obtenerTodas() {
+        return categoriaRepository.findAll().stream()
+                .map(this::convertirADTO)
+                .collect(Collectors.toList());
+    }
+
+    private CategoriaDTO convertirADTO(Categoria categoria) {
+        CategoriaDTO dto = new CategoriaDTO();
+        dto.setId(categoria.getId());
+        dto.setNombre(categoria.getNombre());
+        dto.setIconId(categoria.getIconId());
+        dto.setColorHex(categoria.getColorHex());
+        return dto;
+    }
+}
+
+
+controller:
+package com.example.saveup.controller;
+
+import com.example.saveup.dto.CategoriaDTO;
+import com.example.saveup.service.CategoriaService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/categorias")
+public class CategoriaController {
+
+    @Autowired
+    private CategoriaService categoriaService;
+
+    @GetMapping
+    public ResponseEntity<List<CategoriaDTO>> obtenerTodas() {
+        return ResponseEntity.ok(categoriaService.obtenerTodas());
     }
 }
 
 
 Clases adicionales de configuración:
 
-webconfig:
+DataLoader:
 package com.example.saveup.config;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import com.example.saveup.model.Categoria;
+import com.example.saveup.repository.CategoriaRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
-@Configuration
-public class WebConfig implements WebMvcConfigurer {
+import java.util.List;
 
-    @Value("${app.cors.allowed-origins}")
-    private String[] allowedOrigins;
+@Component
+public class DataLoader implements CommandLineRunner {
 
-    @Value("${app.cors.allowed-methods}")
-    private String[] allowedMethods;
-
-    @Value("${app.cors.allowed-headers}")
-    private String[] allowedHeaders;
-
-    @Value("${app.cors.allow-credentials}")
-    private boolean allowCredentials;
-
-    @Value("${app.cors.max-age}")
-    private long maxAge;
+    @Autowired
+    private CategoriaRepository categoriaRepository;
 
     @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**") // Aplica CORS a todos los endpoints bajo /api/
-                .allowedOrigins(allowedOrigins)
-                .allowedMethods(allowedMethods)
-                .allowedHeaders(allowedHeaders)
-                .allowCredentials(allowCredentials)
-                .maxAge(maxAge);
-    }
-}
+    public void run(String... args) throws Exception {
+        if (categoriaRepository.count() == 0) {
+            System.out.println("Poblando la base de datos con categorías iniciales...");
 
-securityConfig:
-package com.example.saveup.config;
-
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
-
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig {
-
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            // Deshabilitar CSRF porque estamos creando una API REST sin estado.
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                // --- PUNTO CLAVE ---
-                // Permitir el acceso público al endpoint de registro.
-                .requestMatchers(HttpMethod.POST, "/api/usuarios/register").permitAll()
-                // Por ahora, permite el acceso a otros endpoints para facilitar el desarrollo.
-                // Más adelante puedes hacer esto más restrictivo.
-                .anyRequest().permitAll()
+            List<Categoria> categorias = List.of(
+                new Categoria(null, "Sueldo", "ic_work", "#009688"),
+                new Categoria(null, "Comida", "ic_fastfood", "#FFC107"),
+                new Categoria(null, "Transporte", "ic_directions_car", "#2196F3"),
+                new Categoria(null, "Cuentas y Servicios", "ic_receipt_long", "#4CAF50"),
+                new Categoria(null, "Ocio y Entretenimiento", "ic_sports_esports", "#E91E63"),
+                new Categoria(null, "Salud y Bienestar", "ic_medical_services", "#F44336"),
+                new Categoria(null, "Ropa y Accesorios", "ic_checkroom", "#9C27B0"),
+                new Categoria(null, "Deudas", "ic_payment", "#795548"),
+                new Categoria(null, "Otro", "ic_label", "#607D8B")
             );
 
-        return http.build();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        // --- PUNTO CLAVE ---
-        // Bean que estará disponible en toda la aplicación para codificar contraseñas.
-        return new BCryptPasswordEncoder();
+            categoriaRepository.saveAll(categorias);
+            System.out.println("Categorías iniciales guardadas con éxito.");
+        } else {
+            System.out.println("La tabla de categorías ya tiene datos. No se requiere población inicial.");
+        }
     }
 }
-
-// NOTA: Esta clase se elimina para el despliegue en Render,
-// ya que la configuración de la base de datos de producción
-// se gestionará automáticamente por Spring Boot a través de `application-prod.properties`.
-DataSourceConfig:
-package com.example.saveup.config;
-
-import oracle.ucp.jdbc.PoolDataSource;
-import oracle.ucp.jdbc.PoolDataSourceFactory;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Value;
-
-import javax.sql.DataSource;
-import java.sql.SQLException;
-
-@Configuration
-public class DataSourceConfig {
-
-    // Inyectamos los valores desde application-dev.properties
-    @Value("${spring.datasource.username}")
-    private String username;
-
-    @Value("${spring.datasource.password}")
-    private String password;
-
-    @Value("${spring.datasource.url}")
-    private String url;
-
-    @Bean
-    public DataSource dataSource() throws SQLException {
-        // 1. Usamos la fábrica de Oracle para crear una instancia del PoolDataSource (UCP).
-        PoolDataSource dataSource = PoolDataSourceFactory.getPoolDataSource();
-
-        // 2. Le pasamos los parámetros de conexión que leímos del .properties.
-        dataSource.setUser(username);
-        dataSource.setPassword(password);
-        dataSource.setURL(url);
-
-        // 3. Establecemos propiedades críticas para el funcionamiento del pool.
-        dataSource.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
-        dataSource.setFastConnectionFailoverEnabled(true);
-        dataSource.setInitialPoolSize(5); // Número de conexiones iniciales.
-        dataSource.setMinPoolSize(5);
-        dataSource.setMaxPoolSize(20); // Número máximo de conexiones.
-
-        System.out.println("DataSource de Oracle UCP configurado manualmente.");
-
-        // 4. Devolvemos el DataSource configurado. Spring Boot lo usará para todo.
-        return dataSource;
-    }
-}
-
-recursos:
-application.properties:
-# Nombre de la aplicación
-spring.application.name=SaveUp
-
-# Puerto en el que correrá el servidor del backend
-server.port=8080
-
-# --- Perfil Activo ---
-# Activa el perfil "dev". Spring Boot buscará y cargará automáticamente
-# el archivo "application-dev.properties" para la configuración específica.
-spring.profiles.active=dev
-
-# Clave secreta para JWT (JSON Web Tokens) - Guárdala de forma segura
-# Puedes mover esto al perfil 'dev' si tienes claves diferentes por entorno.
-jwt.secret=mi_clave_secreta_super_segura_para_jwt_123456
-jwt.expirationInMs=86400000
-# 24 horas en milisegundos
-
-application-dev.properties:
-# -------------------------------------------------------------------
-# ================ PERFIL DE DESARROLLO (dev) =======================
-# -------------------------------------------------------------------
-
-# --- Configuración de la Base de Datos Oracle ---
-# Estos valores ahora son leídos por nuestra clase DataSourceConfig.
-spring.datasource.username=lite
-spring.datasource.password=RixarLlama2006ColoColoXD
-spring.datasource.url=jdbc:oracle:thin:@base3_high?TNS_ADMIN=G:/LITE_BACK/saveup/src/main/resources/wallet
-
-# --- Configuración de JPA y Hibernate ---
-spring.jpa.hibernate.ddl-auto=create
-# 'update': Actualiza el esquema de la BD al iniciar (ideal para desarrollo).
-# Usa 'validate' o 'none' en producción para evitar cambios accidentales.
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.OracleDialect
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.format_sql=true
-
-# --- Configuración de Logs para Depuración ---
-# Muestra información detallada sobre las consultas SQL, conexiones y transacciones.
-# Muy útil para depurar errores de base de datos.
-logging.level.org.hibernate.SQL=DEBUG
-logging.level.org.hibernate.type.descriptor.sql=TRACE
-logging.level.org.springframework.jdbc.core=TRACE
-logging.level.com.zaxxer.hikari=DEBUG
-
-
-# --- Configuración de CORS para Desarrollo ---
-# Permite que tu aplicación frontend (Android, Ionic, etc.) que corre en un origen diferente
-# (ej. localhost) pueda comunicarse con el backend.
-app.cors.allowed-origins=http://localhost:8100,http://localhost:4200,capacitor://localhost,http://localhost
-app.cors.allowed-methods=GET,POST,PUT,DELETE,OPTIONS
-app.cors.allowed-headers=Authorization,Content-Type,X-Requested-With
-app.cors.allow-credentials=true
-app.cors.max-age=3600
-
-
-application-prod.properties:
-# -------------------------------------------------------------------
-# ================ PERFIL DE PRODUCCIÓN (prod) ======================
-# -------------------------------------------------------------------
-
-# --- Configuración de la Base de Datos PostgreSQL (Render) ---
-# Le decimos a Spring que use el driver de PostgreSQL.
-spring.datasource.driver-class-name=org.postgresql.Driver
-
-# Le decimos a JPA que use el dialecto de PostgreSQL para generar SQL correcto.
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-
-# 'validate' es la opción más segura para producción.
-# Comprueba que las tablas de la BD coincidan con las entidades, pero no hace cambios.
-# Para el PRIMER despliegue, podría ser necesario cambiarlo a 'update' temporalmente
-# para que Hibernate cree las tablas automáticamente.
-spring.jpa.hibernate.ddl-auto=validate
-
-# --- Configuración leída desde variables de entorno de Render ---
-spring.datasource.url=${SPRING_DATASOURCE_URL}
-spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
-spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
-jwt.secret=${JWT_SECRET}
-
-
-pom.xml:
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.0</version>
-        <relativePath/>
-    </parent>
-    <groupId>com.example</groupId>
-    <artifactId>saveup</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>saveup_lite</name>
-    <description>Backend para saveup Lite</description>
-
-    <properties>
-        <java.version>21</java.version>
-        <oracle.version>23.4.0.24.05</oracle.version>
-    </properties>
-
-    <dependencies>
-        <!-- === DEPENDENCIAS ESENCIALES DE SPRING BOOT === -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-hateoas</artifactId>
-        </dependency>
-
-        <!-- === DEPENDENCIAS DE ORACLE (PARA DESARROLLO LOCAL) === -->
-        <dependency>
-            <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ucp</artifactId>
-            <version>${oracle.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ojdbc11</artifactId>
-            <version>${oracle.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.oracle.database.security</groupId>
-            <artifactId>oraclepki</artifactId>
-            <version>${oracle.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ojdbc11-production</artifactId>
-            <version>${oracle.version}</version>
-            <type>pom</type>
-        </dependency>
-
-        <!-- === DEPENDENCIA DE POSTGRESQL (PARA PRODUCCIÓN EN RENDER) === -->
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- === DEPENDENCIAS DE TEST === -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-</project>
-
----
-# Apéndice: Estado Actual de la Seguridad de los Endpoints
----
-
-**Fecha de Análisis:** 2024-05-22
-
-**Estado Actual:** **ACCESO PÚBLICO**
-
-**Análisis:**
-Basado en la configuración actual de la clase `SecurityConfig.java`, todos los endpoints de la API, con la excepción del registro (`/api/usuarios/register`) que está explícitamente permitido, están abiertos al público. Esto se debe a la regla `.anyRequest().permitAll()`.
-
-**Justificación:**
-Esta configuración es **intencional y temporal**. Se ha establecido de esta manera para facilitar las fases de desarrollo, pruebas y el despliegue inicial en la nube (Render). Permite probar la funcionalidad de cada endpoint directamente desde herramientas como Postman o desde la aplicación cliente sin tener que manejar la complejidad de la autenticación por tokens.
-
-**Próximos Pasos (Seguridad de Producción):**
-El siguiente paso crítico, una vez que la funcionalidad básica esté validada en el entorno de producción, es implementar una estrategia de seguridad robusta basada en **JSON Web Tokens (JWT)**.
-
-El plan de acción es el siguiente:
-1.  **Generación de Token en el Login:** Modificar el `UsuarioService` o el `UsuarioController` para que, tras una autenticación exitosa, genere un token JWT firmado con la clave secreta (`jwt.secret`).
-2.  **Crear un Filtro de Autorización (`JwtAuthorizationFilter`):** Crear una nueva clase de filtro que se ejecutará en cada petición. Este filtro:
-    *   Leerá el token JWT de la cabecera `Authorization`.
-    *   Utilizará la clave secreta (`jwt.secret`) para validar la firma y la expiración del token.
-    *   Si el token es válido, establecerá el contexto de seguridad de Spring, permitiendo el acceso al endpoint solicitado.
-3.  **Actualizar `SecurityConfig`:** Se modificará la configuración de seguridad para que:
-    *   Utilice el nuevo `JwtAuthorizationFilter`.
-    *   Restrinja el acceso a los endpoints (ej: `/api/movimientos/**`, `/api/saldos/**`), requiriendo que todas las peticiones estén autenticadas (`.anyRequest().authenticated()`).
-
-**Nota sobre `jwt.secret`:**
-La propiedad `jwt.secret` está definida en los archivos `.properties` en preparación para la implementación de JWT. El aviso del IDE sobre que es una "propiedad desconocida" es normal y esperado en esta fase, ya que todavía no existe ninguna clase Java (`JwtUtil`, `JwtAuthorizationFilter`, etc.) que la esté inyectando y utilizando activamente. Este aviso desaparecerá una vez se implemente la capa de seguridad JWT.

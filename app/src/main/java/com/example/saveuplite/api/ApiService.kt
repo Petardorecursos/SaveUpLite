@@ -41,7 +41,12 @@ interface ApiService {
         @Path("rut") rut: String,
         @Query("page") page: Int,
         @Query("size") size: Int
+
     ): Response<PageResponseDTO<MovimientoResponseDTO>>
+
+    // --- Endpoints de Categorías ---
+    @GET("api/categorias")
+    suspend fun getCategorias(): Response<List<CategoriaDTO>>
 
     // --- Endpoints de Deudas ---
 

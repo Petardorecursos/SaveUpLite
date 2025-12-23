@@ -1,8 +1,8 @@
 # Arquitectura de Backend - Modelo Orientado a Transacciones
 
-**Versión:** 1.1
+**Versión:** 1.2
 **Autor:** Rui
-**Fecha:** 2024-05-23
+**Fecha:** 2025-12-06
 
 ## 1. Concepto Clave: Los Movimientos como Fuente Única de Verdad
 
@@ -10,9 +10,6 @@ Esta arquitectura se fundamenta en un principio contable básico: el estado actu
 
 - **La entidad `Movimiento` es la reina:** Cada ingreso, gasto, pago de deuda o abono a una meta se registra como un `Movimiento` inalterable.
 - **El `Saldo` es un cálculo:** El saldo total de un usuario es, en cualquier momento, la `SUMA` de todos los montos de sus movimientos. `Saldo Actual = SUM(movimientos.monto)`.
-- **Montos Positivos y Negativos:** Para simplificar el cálculo, los montos se guardan con signo. Los ingresos son positivos (`+1000.0`) y los gastos son negativos (`-50.0`).
-
-Este enfoque garantiza la máxima integridad y consistencia de los datos, eliminando por completo la posibilidad de que el saldo se desincronice del historial de transacciones.
 
 ---
 
@@ -73,8 +70,10 @@ Este enfoque garantiza la máxima integridad y consistencia de los datos, elimin
 ### Contras:
 
 1.  **Rendimiento en Cálculos Masivos:**
-    - **Mitigación (Implementada):** El problema de cargar listas masivas de movimientos en el cliente ha sido resuelto mediante la implementación de **paginación en la API**. La app ahora solicita solo los datos que necesita ver: los últimos 10 para el dashboard y páginas de 50 para el historial completo. La mitigación del cálculo del saldo (caching) sigue pendiente para el futuro si fuese necesario.
-
+    - **Mitigación (Implementada):** El problema de cargar listas masivas de movimientos en el cliente ha sido
+    resuelto mediante la implementación de **paginación en la API**. La app ahora solicita solo los datos que necesita ver:
+    los últimos 10 para el dashboard y páginas de 50 para el historial completo. La mitigación del cálculo del saldo (caching)
+     sigue pendiente para el futuro si fuese necesario.
 ---
 
 ## 5. Estrategia de Despliegue y Entornos
@@ -83,16 +82,51 @@ Para asegurar la flexibilidad durante el desarrollo y la robustez en producción
 
 ### 5.1. Entorno de Desarrollo (`dev`)
 
--   **Base de Datos:** Oracle Database.
--   **Configuración:** Gestionada a través del archivo `application-dev.properties`.
+-   **Base de Datos:** Oracle Database (puede ser una instancia local o en la nube como Oracle Cloud).
+-   **Configuración:** Gestionada a través del archivo `application-dev.properties` y la clase `DataSourceConfig` anotada con `@Profile("dev")`.
 
 ### 5.2. Entorno de Producción (`prod`)
 
 -   **Plataforma de Despliegue:** **Render**.
--   **Método de Despliegue:** **Docker**.
--   **Base de Datos:** **PostgreSQL** (servicio gestionado por Render).
--   **Configuración:** Gestionada por `application-prod.properties` y **Variables de Entorno** en Render para los secretos.
-    -   **Nota sobre CORS:** `app.cors.allow-credentials` se establece en `false` cuando `app.cors.allowed-origins` es `*` para cumplir con los requisitos de seguridad del protocolo.
+-   **Método de Despliegue:** **Docker**. (Multi-stage build).
+-   **Base de Datos:** **Oracle Cloud**.
+-   **Configuración:** Gestionada por `application-prod.properties`. Este archivo lee la configuración de la base de datos y otros secretos (como la clave JWT) desde las **Variables de Entorno** configuradas en el dashboard de Render, garantizando que no haya datos sensibles en el código fuente.
+
+### 5.3. Historial de Migraciones
+
+#### 5.3.1. Migración de PostgreSQL (Render) a Oracle Cloud (Diciembre 2025)
+
+-   **Desafío Técnico Final:** Durante el despliegue en Render, se produjo el error `ORA-12263: Failed to access tnsnames.ora`. La causa raíz fue que el driver JDBC de Oracle no puede leer los archivos de la wallet desde dentro de un archivo JAR usando la ruta `classpath:`, que era la configuración inicial.
+
+-   **Solución Definitiva (Implementada):** Se tomó control del entorno de ejecución mediante un **Dockerfile multi-stage** para asegurar una ubicación fija y accesible para la wallet.
+
+    1.  **Ajuste del `Dockerfile`:** Se modificó la etapa final del `Dockerfile` para crear un directorio explícito para la wallet y copiar los archivos en él.
+        ```dockerfile
+        # --- Etapa 2: Ejecución (Run Stage) ---
+        FROM eclipse-temurin:21-jre-alpine
+        WORKDIR /app
+
+        # Crear un directorio para la wallet y copiar los archivos desde la etapa de build
+        RUN mkdir -p /opt/oracle/wallet
+        COPY --from=build /app/src/main/resources/wallet /opt/oracle/wallet/
+
+        # Copiar el JAR de la aplicación
+        COPY --from=build /app/target/*.jar app.jar
+
+        EXPOSE 8080
+        ENTRYPOINT ["java", "-jar", "app.jar"]
+        ```
+
+    2.  **Ajuste de Variables de Entorno en Render:** Se reconfiguraron las variables en el dashboard de Render para que coincidieran con la nueva estructura del contenedor.
+        *   Se creó una nueva variable `TNS_ADMIN` apuntando a la ruta fija:
+            -   **Key:** `TNS_ADMIN`
+            -   **Value:** `/opt/oracle/wallet`
+        *   Se simplificó la URL de conexión en la variable `SPRING_DATASOURCE_URL`, eliminando el parámetro `TNS_ADMIN` de la cadena de conexión.
+            -   **Key:** `SPRING_DATASOURCE_URL`
+            -   **Value:** `jdbc:oracle:thin:@base3_high`
+        *   Se verificó que los nombres de las variables (`SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`) coincidieran con los placeholders en `application-prod.properties`.
+
+-   **Resultado:** El backend en producción ahora opera exitosamente sobre Oracle Cloud. La migración validó la arquitectura desacoplada y estableció un patrón de despliegue robusto para futuras actualizaciones.
 
 ---
 
@@ -111,3 +145,61 @@ Esta sección documenta decisiones de implementación y detalles específicos de
 -   **Ejemplos:**
     -   `1500.0` se muestra como `$ 1.500`.
     -   `-500.0` se muestra como `-$ 500`.
+
+---
+
+## 7. Postergación de Seguridad Basada en Tokens (JWT)
+Estado: Aceptado
+Fecha: 23 de diciembre de 2025
+
+Contexto: Proyecto SaveUp (Backend: LITE / Frontend: SaveUpLite)
+1. Descripción del Problema
+
+Actualmente, el proyecto se encuentra en una fase de desarrollo intensivo de funcionalidades core (gestión de deudas, movimientos y saldos). La implementación de un sistema de seguridad basado en JSON Web Tokens (JWT) añade una capa de complejidad técnica que requiere:
+
+    Configuración de filtros de interceptación en Spring Security.
+
+    Gestión de ciclo de vida de tokens (expiración, renovación) en el Frontend.
+
+    Manejo de cabeceras Authorization: Bearer en todas las peticiones de Retrofit.
+
+2. Decisión
+
+Se ha decidido mantener una política de seguridad permisiva (.anyRequest().permitAll()) en la clase SecurityConfig.java durante la fase de construcción de features. La autenticación se validará únicamente en el endpoint de /login, devolviendo el objeto Usuario para uso inmediato en el cliente, pero sin exigir un token de sesión para los endpoints de negocio.
+3. Razonamiento y Justificación
+
+    Agilidad de Desarrollo: Permite probar endpoints de deudas y movimientos de forma inmediata sin lidiar con errores de autenticación o tokens expirados durante las pruebas manuales.
+
+    Enfoque en Valor de Negocio: Prioriza la lógica de cálculo de saldos y la integración de APIs de divisas (Frankfurter/Mindicador) sobre la infraestructura de seguridad.
+
+    Pragmatismo (YAGNI): No se añade la complejidad de JWT hasta que el sistema sea estable y requiera un despliegue en un entorno no controlado (Producción).
+
+    Seguridad Base Existente: Se mantiene el uso de BCryptPasswordEncoder para proteger las contraseñas en la base de datos, asegurando que no haya brechas de texto plano incluso en desarrollo.
+
+4. Enfoque a Futuro (Post-Features)
+
+Una vez implementadas las funcionalidades de deudas, metas, historial, mercado, etc., se seguirá la siguiente hoja de ruta para robustecer el sistema:
+
+    Migración a JWT:
+
+        Implementar JwtUtil para la generación de tokens tras un login exitoso.
+
+        Modificar UsuarioController para que el /login devuelva un DTO con el token.
+
+    Cierre de Endpoints:
+
+        Cambiar .anyRequest().permitAll() por .anyRequest().authenticated() en SecurityConfig.
+
+        Habilitar SessionCreationPolicy.STATELESS para forzar el uso de tokens.
+
+    Ajuste en Frontend:
+
+        Implementar un Interceptor en Retrofit para adjuntar automáticamente el token guardado en SharedPreferences o DataStore a cada petición.
+
+5. Riesgos Aceptados
+
+    Acceso no autorizado en Entorno Local: Cualquier usuario con acceso a la red local de desarrollo podría realizar peticiones a la API sin credenciales. Este riesgo se considera bajo y aceptable en esta etapa.
+
+Aprobado por: Desarrollo SaveUp
+
+Impacto: Alto en velocidad de desarrollo; Bajo en seguridad inmediata (entorno controlado).

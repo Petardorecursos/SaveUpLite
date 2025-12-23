@@ -40,6 +40,8 @@ import com.example.saveuplite.model.enums.TipoMovimiento
 import com.example.saveuplite.ui.navigation.Routes
 import com.example.saveuplite.ui.theme.*
 import com.example.saveuplite.viewmodel.DashboardViewModel
+import com.example.saveuplite.model.dto.CategoriaDTO
+import com.example.saveuplite.ui.components.CategorySelector
 import com.example.saveuplite.viewmodel.UsuarioViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -53,7 +55,7 @@ sealed class NavItem(val route: String, val icon: ImageVector, val label: String
     object Home : NavItem(Routes.HOME, Icons.Filled.Home, "Inicio")
     object Debts : NavItem(Routes.DEBTS, Icons.Filled.AccountBalanceWallet, "Deudas")
     object Goals : NavItem(Routes.GOALS, Icons.Filled.Star, "Metas")
-    object Market : NavItem(Routes.MARKET, Icons.Filled.ShowChart, "Mercado")
+    object Analysis : NavItem(Routes.ANALYSIS, Icons.Filled.PieChart, "Análisis")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,7 +102,10 @@ fun DashboardScreen(
 
     // --- Efectos para carga de datos y errores ---
     LaunchedEffect(usuarioState.currentUser) {
-        usuarioState.currentUser?.rut?.let { dashboardViewModel.cargarDatosDashboard(it) }
+        usuarioState.currentUser?.rut?.let { 
+            dashboardViewModel.cargarDatosDashboard(it) 
+            dashboardViewModel.cargarCategorias() // Cargar categorías
+        }
     }
     LaunchedEffect(dashboardState.errorMessage) {
         dashboardState.errorMessage?.let {
@@ -154,9 +159,12 @@ fun DashboardScreen(
     if (showAddTransactionDialog) {
         AddTransactionDialog(
             tipo = tipoMovimientoDialog,
+            categorias = dashboardState.categorias, // Pasar categorías
             onDismiss = { showAddTransactionDialog = false },
-            onConfirm = {
-                usuarioState.currentUser?.rut?.let { rut -> dashboardViewModel.registrarMovimiento(rut, it.first, it.second, tipoMovimientoDialog) }
+            onConfirm = { amount, desc, catId ->
+                usuarioState.currentUser?.rut?.let { rut -> 
+                    dashboardViewModel.registrarMovimiento(rut, amount, desc, tipoMovimientoDialog, catId) 
+                }
                 showAddTransactionDialog = false
             }
         )
@@ -224,7 +232,7 @@ private fun DrawerContent(navController: NavHostController, usuarioViewModel: Us
 
 @Composable
 fun SoftUiBottomNav(navController: NavController) {
-    val items = listOf(NavItem.Home, NavItem.Debts, NavItem.Goals, NavItem.Market)
+    val items = listOf(NavItem.Home, NavItem.Debts, NavItem.Goals, NavItem.Analysis)
     Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().shadow(elevation = 10.dp, shape = RoundedCornerShape(24.dp), spotColor = Color(0x30DEDEE0)).shadow(elevation = 10.dp, shape = RoundedCornerShape(24.dp), spotColor = Color.White.copy(alpha = 0.9f)).background(Color.White, RoundedCornerShape(24.dp)).padding(horizontal = 8.dp, vertical = 12.dp),
@@ -319,7 +327,17 @@ fun TransactionItem(item: MovimientoResponseDTO) {
         Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = item.descripcion, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
+                // Muestra la categoría si está disponible
+                item.categoria?.let {
+                    Text(
+                        text = it.nombre,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
                 Text(text = dateFormat.format(item.fecha), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(text = formattedAmount, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = amountColor)
@@ -329,9 +347,15 @@ fun TransactionItem(item: MovimientoResponseDTO) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddTransactionDialog(tipo: TipoMovimiento, onDismiss: () -> Unit, onConfirm: (Pair<Double, String>) -> Unit) {
+fun AddTransactionDialog(
+    tipo: TipoMovimiento, 
+    categorias: List<CategoriaDTO>,
+    onDismiss: () -> Unit, 
+    onConfirm: (Double, String, Long?) -> Unit
+) {
     var monto by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<CategoriaDTO?>(null) }
     
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -339,12 +363,43 @@ fun AddTransactionDialog(tipo: TipoMovimiento, onDismiss: () -> Unit, onConfirm:
         title = { Text(if (tipo == TipoMovimiento.INGRESO_GENERAL) "Añadir Ingreso" else "Añadir Gasto") },
         text = {
             Column {
-                OutlinedTextField(value = monto, onValueChange = { monto = it }, label = { Text("Monto") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(
+                    value = monto, 
+                    onValueChange = { monto = it }, 
+                    label = { Text("Monto") }, 
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                    shape = RoundedCornerShape(12.dp)
+                )
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción") }, shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(
+                    value = descripcion, 
+                    onValueChange = { descripcion = it }, 
+                    label = { Text("Descripción") }, 
+                    shape = RoundedCornerShape(12.dp)
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Categoría", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                CategorySelector(
+                    categories = categorias,
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = { selectedCategory = it }
+                )
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(Pair(monto.toDoubleOrNull() ?: 0.0, descripcion)) }, shape = RoundedCornerShape(12.dp)) { Text("Guardar") } },
+        confirmButton = { 
+            Button(
+                onClick = { 
+                    onConfirm(
+                        monto.toDoubleOrNull() ?: 0.0, 
+                        descripcion,
+                        selectedCategory?.id
+                    ) 
+                }, 
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Guardar") } 
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
 }

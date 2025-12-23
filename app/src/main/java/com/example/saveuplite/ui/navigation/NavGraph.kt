@@ -17,6 +17,7 @@ import com.example.saveuplite.api.RetrofitClient
 import com.example.saveuplite.ui.screens.auth.AuthScreen
 import com.example.saveuplite.ui.screens.converter.ConverterScreen
 import com.example.saveuplite.ui.screens.dashboard.DashboardScreen
+import com.example.saveuplite.ui.screens.AnalysisScreen
 import com.example.saveuplite.ui.screens.deudas.AddDeudaScreen
 import com.example.saveuplite.ui.screens.deudas.DeudasScreen
 import com.example.saveuplite.ui.screens.history.TransactionHistoryScreen
@@ -29,6 +30,7 @@ import com.example.saveuplite.ui.screens.nativeView.NotificationScreen
 import com.example.saveuplite.viewmodel.AuthViewModelFactory
 import com.example.saveuplite.viewmodel.LocationViewModel
 import com.example.saveuplite.viewmodel.UsuarioViewModel
+import com.example.saveuplite.viewmodel.AnalysisViewModel
 
 object Routes {
     const val AUTH = "auth"
@@ -40,6 +42,7 @@ object Routes {
     const val ADD_DEBT = "add_debt" // <-- NUEVA RUTA
     const val GOALS = "goals"
     const val MARKET = "market"
+    const val ANALYSIS = "analysis" // <-- NUEVA RUTA
     const val CONVERTER = "converter"
 
     // --- Rutas Legacy ---
@@ -74,6 +77,12 @@ fun AppNavHost(navController: NavHostController) {
         composable(Routes.ADD_DEBT) { AddDeudaScreen(navController, usuarioViewModel) }
         composable(Routes.GOALS) { PlaceholderScreen(screenName = "Metas de Ahorro") }
         composable(Routes.MARKET) { MarketScreen(navController = navController) }
+        composable(Routes.ANALYSIS) { 
+            val analysisViewModel: AnalysisViewModel = viewModel()
+            // Se asume que el usuario esta logueado si llega aca
+            val rut = usuarioViewModel.uiState.value.currentUser?.rut ?: ""
+            AnalysisScreen(navController, analysisViewModel, rut) 
+        }
         composable(Routes.CONVERTER) { ConverterScreen(navController = navController) }
 
         // --- Rutas de funciones adicionales (Legacy) ---

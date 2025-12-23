@@ -254,6 +254,7 @@ import com.example.saveup.model.Movimiento;
 import com.example.saveup.model.Usuario;
 import com.example.saveup.model.enums.EstadoDeuda;
 import com.example.saveup.model.enums.TipoMovimiento;
+import com.example.saveup.repository.CategoriaRepository;
 import com.example.saveup.repository.DeudaRepository;
 import com.example.saveup.repository.MovimientoRepository;
 import com.example.saveup.repository.UsuarioRepository;
@@ -261,6 +262,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.saveup.model.Categoria;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -274,6 +276,8 @@ public class DeudaService {
     private UsuarioRepository usuarioRepository;
     @Autowired
     private MovimientoRepository movimientoRepository;
+    @Autowired
+    private CategoriaRepository categoriaRepository;
 
     @Transactional
     public DeudaResponseDTO crearDeuda(DeudaCreacionDTO dto) {
@@ -311,6 +315,8 @@ public class DeudaService {
         if (deuda.getEstado() != EstadoDeuda.PENDIENTE) {
             throw new IllegalStateException("Solo se pueden registrar pagos en deudas pendientes. Estado actual: " + deuda.getEstado());
         }
+        Categoria categoriaDeudas = categoriaRepository.findByNombre("Deudas")
+                .orElseThrow(() -> new IllegalStateException("La categoría 'Deudas' no fue encontrada. Asegúrate de que exista en la base de datos."));
 
         // Crear y guardar el movimiento de pago
         Movimiento pago = new Movimiento();
@@ -319,18 +325,19 @@ public class DeudaService {
         pago.setMonto(pagoDTO.getMonto() * -1); // Los pagos son egresos, por lo tanto negativos
         pago.setDescripcion(pagoDTO.getDescripcion());
         pago.setTipoMovimiento(TipoMovimiento.PAGO_DEUDA);
+        pago.setCategoria(categoriaDeudas);
         movimientoRepository.save(pago);
 
         // Verificar si la deuda está completamente pagada después del nuevo pago
-        double totalPagado = Math.abs(deudaRepository.findTotalPagadoPorDeuda(deudaId));
+        // El cálculo de totalPagado ahora es más preciso
+        double totalPagado = Math.abs(movimientoRepository.findByDeuda(deuda).stream().mapToDouble(Movimiento::getMonto).sum());
         if (totalPagado >= deuda.getMontoTotal()) {
             deuda.setEstado(EstadoDeuda.PAGADA);
-            deudaRepository.save(deuda);
         }
-
-        return convertirADeudaResponseDTO(deuda);
+        Deuda deudaActualizada = deudaRepository.save(deuda);
+        return convertirADeudaResponseDTO(deudaActualizada);
     }
-
+    
     @Transactional
     public DeudaResponseDTO editarDeuda(Long deudaId, DeudaCreacionDTO dto) {
         Deuda deuda = deudaRepository.findById(deudaId)
@@ -354,7 +361,7 @@ public class DeudaService {
     public DeudaResponseDTO cancelarDeuda(Long deudaId) {
         Deuda deuda = deudaRepository.findById(deudaId)
             .orElseThrow(() -> new EntityNotFoundException("Deuda no encontrada con ID: " + deudaId));
-
+        
         if (deuda.getEstado() == EstadoDeuda.PAGADA) {
              throw new IllegalStateException("No se puede cancelar una deuda que ya fue pagada.");
         }
@@ -385,67 +392,3 @@ public class DeudaService {
         return dto;
     }
 }
-
-Modificación en MovimientoService, función registrarMovimiento:
-@Autowired
-    private DeudaRepository deudaRepository;
-
-    // En un futuro, si implementamos MetaAhorro:
-    // @Autowired
-    // private MetaAhorroRepository metaAhorroRepository;
-
-    @Transactional
-    public MovimientoResponseDTO registrarMovimiento(MovimientoRegistroDTO dto) {
-        // 1. Validar que el usuario exista.
-        Usuario usuario = usuarioRepository.findById(dto.getUsuarioRut())
-                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado con RUT: " + dto.getUsuarioRut()));
-
-        // 2. Crear la entidad Movimiento a partir del DTO.
-        Movimiento movimiento = new Movimiento();
-        movimiento.setUsuario(usuario);
-        movimiento.setMonto(dto.getMonto());
-        movimiento.setDescripcion(dto.getDescripcion());
-        movimiento.setTipoMovimiento(dto.getTipoMovimiento());
-        // La fecha se establece automáticamente gracias a @PrePersist.
-
-        // --- LÓGICA DE ASOCIACIÓN CON DEUDAS Y METAS ---
-
-        // Si se proporciona un deudaId, se asocia el movimiento a esa deuda.
-        if (dto.getDeudaId() != null) {
-            // Validación de negocio: Solo los PAGO_DEUDA pueden tener un deudaId.
-            if (dto.getTipoMovimiento() != TipoMovimiento.PAGO_DEUDA) {
-                throw new IllegalArgumentException("El campo 'deudaId' solo es válido para movimientos de tipo PAGO_DEUDA.");
-            }
-            // Se busca la deuda y se asocia.
-            Deuda deuda = deudaRepository.findById(dto.getDeudaId())
-                    .orElseThrow(() -> new EntityNotFoundException("Deuda no encontrada con ID: " + dto.getDeudaId()));
-            movimiento.setDeuda(deuda);
-
-            // Opcional pero recomendado: Verificar si este pago salda la deuda.
-            // Esto crea consistencia si se usa este endpoint en vez del de DeudaService.
-            // Nota: Se realiza una comprobación después de que el movimiento se guarde teóricamente.
-            double nuevoTotalPagado = Math.abs(deudaRepository.findTotalPagadoPorDeuda(deuda.getId())) + Math.abs(dto.getMonto());
-            if (nuevoTotalPagado >= deuda.getMontoTotal()) {
-                deuda.setEstado(EstadoDeuda.PAGADA);
-                deudaRepository.save(deuda);
-            }
-        }
-
-        /*
-        // Si se proporciona un metaId, se asocia el movimiento a esa meta (para el futuro).
-        if (dto.getMetaId() != null) {
-            if (dto.getTipoMovimiento() != TipoMovimiento.ABONO_META && dto.getTipoMovimiento() != TipoMovimiento.RETIRO_META) {
-                throw new IllegalArgumentException("El campo 'metaId' solo es válido para movimientos relacionados con metas.");
-            }
-            MetaAhorro meta = metaAhorroRepository.findById(dto.getMetaId())
-                    .orElseThrow(() -> new EntityNotFoundException("Meta de ahorro no encontrada con ID: " + dto.getMetaId()));
-            movimiento.setMetaAhorro(meta);
-        }
-        */
-
-        // 3. Guardar la entidad en la base de datos.
-        Movimiento movimientoGuardado = movimientoRepository.save(movimiento);
-
-        // 4. Convertir la entidad guardada a un DTO de respuesta y devolverla.
-        return convertirAEntidadResponseDTO(movimientoGuardado);
-    }

@@ -1,0 +1,168 @@
+Clase Categoria y sus clases respectivas:
+
+model:
+package com.example.saveup.model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "CATEGORIA")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Categoria {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID_CATEGORIA")
+    private Long id;
+
+    @Column(name = "NOMBRE", nullable = false, unique = true)
+    private String nombre;
+
+    @Column(name = "ICON_ID")
+    private String iconId; // Identificador del icono (ej: "ic_food")
+
+    @Column(name = "COLOR_HEX")
+    private String colorHex; // Código de color (ej: "#FF5733")
+}
+
+
+repository:
+package com.example.saveup.repository;
+
+import com.example.saveup.model.Categoria;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.Optional;
+
+@Repository
+public interface CategoriaRepository extends JpaRepository<Categoria, Long> {
+    Optional<Categoria> findByNombre(String nombre);
+}
+
+
+service:
+package com.example.saveup.service;
+
+import com.example.saveup.dto.CategoriaDTO;
+import com.example.saveup.model.Categoria;
+import com.example.saveup.repository.CategoriaRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class CategoriaService {
+
+    @Autowired
+    private CategoriaRepository categoriaRepository;
+
+    @Transactional(readOnly = true)
+    public List<CategoriaDTO> obtenerTodas() {
+        return categoriaRepository.findAll().stream()
+                .map(this::convertirADTO)
+                .collect(Collectors.toList());
+    }
+
+    private CategoriaDTO convertirADTO(Categoria categoria) {
+        CategoriaDTO dto = new CategoriaDTO();
+        dto.setId(categoria.getId());
+        dto.setNombre(categoria.getNombre());
+        dto.setIconId(categoria.getIconId());
+        dto.setColorHex(categoria.getColorHex());
+        return dto;
+    }
+}
+
+
+controller:
+package com.example.saveup.controller;
+
+import com.example.saveup.dto.CategoriaDTO;
+import com.example.saveup.service.CategoriaService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/categorias")
+public class CategoriaController {
+
+    @Autowired
+    private CategoriaService categoriaService;
+
+    @GetMapping
+    public ResponseEntity<List<CategoriaDTO>> obtenerTodas() {
+        return ResponseEntity.ok(categoriaService.obtenerTodas());
+    }
+}
+
+
+Actualización Clase Movimiento:
+
+model:
+package com.example.saveup.model;
+
+import com.example.saveup.model.enums.TipoMovimiento;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import java.util.Date;
+
+@Entity
+@Table(name = "MOVIMIENTO")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Movimiento {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID_MOVIMIENTO")
+    private Long id;
+
+    @Column(name = "MONTO", nullable = false)
+    private double monto;
+
+    @Column(name = "DESCRIPCION", nullable = false, length = 100)
+    private String descripcion;
+
+    @Column(name = "FECHA", nullable = false, updatable = false)
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date fecha;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "TIPO_MOVIMIENTO", nullable = false)
+    private TipoMovimiento tipoMovimiento;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "USUARIO_ID", nullable = false)
+    private Usuario usuario;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "DEUDA_ID")
+    private Deuda deuda;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "CATEGORIA_ID")
+    private Categoria categoria;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.fecha == null) {
+            this.fecha = new Date();
+        }
+    }
+}

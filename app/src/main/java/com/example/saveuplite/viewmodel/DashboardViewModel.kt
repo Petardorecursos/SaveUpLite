@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.saveuplite.api.RetrofitClient
 import com.example.saveuplite.model.dto.MovimientoRegistroDTO
 import com.example.saveuplite.model.dto.MovimientoResponseDTO
+import com.example.saveuplite.model.dto.CategoriaDTO
 import com.example.saveuplite.model.enums.TipoMovimiento
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +18,8 @@ data class DashboardUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val saldoActual: Double = 0.0,
-    val historialMovimientos: List<MovimientoResponseDTO> = emptyList()
+    val historialMovimientos: List<MovimientoResponseDTO> = emptyList(),
+    val categorias: List<CategoriaDTO> = emptyList() // Lista de categorías
 )
 
 class DashboardViewModel : ViewModel() {
@@ -62,10 +64,25 @@ class DashboardViewModel : ViewModel() {
         }
     }
 
+    fun cargarCategorias() {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.apiService.getCategorias()
+                if (response.isSuccessful && response.body() != null) {
+                    _uiState.update { it.copy(categorias = response.body()!!) }
+                } else {
+                    _uiState.update { it.copy(errorMessage = "Error al cargar categorías: ${response.code()}") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Error de red al cargar categorías: ${e.message}") }
+            }
+        }
+    }
+
     /**
      * Registra un nuevo movimiento (ingreso o gasto) a través de la API.
      */
-    fun registrarMovimiento(rut: String, monto: Double, descripcion: String, tipo: TipoMovimiento) {
+    fun registrarMovimiento(rut: String, monto: Double, descripcion: String, tipo: TipoMovimiento, categoriaId: Long? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
@@ -76,7 +93,8 @@ class DashboardViewModel : ViewModel() {
                 monto = montoCorregido,
                 descripcion = descripcion,
                 tipoMovimiento = tipo,
-                usuarioRut = rut
+                usuarioRut = rut,
+                categoriaId = categoriaId
             )
 
             try {

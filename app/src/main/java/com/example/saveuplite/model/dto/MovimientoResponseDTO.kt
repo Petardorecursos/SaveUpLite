@@ -11,5 +11,6 @@ data class MovimientoResponseDTO(
     val monto: Double,
     val descripcion: String,
     val fecha: Date,
-    val tipoMovimiento: TipoMovimiento
+    val tipoMovimiento: TipoMovimiento,
+    val categoria: CategoriaDTO? // <- CAMBIO: Hacer el campo nullable
 )
