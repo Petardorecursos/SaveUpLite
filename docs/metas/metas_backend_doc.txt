@@ -1,0 +1,156 @@
+## Documentación Técnica: Backend de Metas de Ahorro
+
+**Versión:** 1.0
+**Fecha:** 2024-05-24
+
+Este documento detalla la implementación del backend para la funcionalidad de Metas de Ahorro.
+
+---
+
+### 1. Entidades de Base de Datos
+
+#### `MetaAhorro.java`
+```java
+package com.example.saveup.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import java.util.Date;
+
+@Entity
+@Table(name = "META_AHORRO")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class MetaAhorro {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID_META")
+    private Long id;
+
+    @Column(name = "NOMBRE", nullable = false, length = 100)
+    private String nombre;
+
+    @Column(name = "MONTO_OBJETIVO")
+    private Double montoObjetivo;
+
+    @Column(name = "FECHA_LIMITE")
+    @Temporal(TemporalType.DATE)
+    private Date fechaLimite;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "USUARIO_ID", nullable = false)
+    private Usuario usuario;
+}
+```
+
+#### `Movimiento.java` (Actualizada)
+```java
+// ... (código existente)
+    // --- Relación con MetaAhorro (Activada) ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "META_ID")
+    private MetaAhorro metaAhorro;
+// ... (código existente)
+```
+
+#### `TipoMovimiento.java` (Actualizado)
+```java
+public enum TipoMovimiento {
+    INGRESO_GENERAL,
+    GASTO_GENERAL,
+    PAGO_DEUDA,
+    ABONO_META,   // <-- Nuevo
+    RETIRO_META   // <-- Nuevo
+}
+```
+
+---
+
+### 2. DTOs (Data Transfer Objects)
+
+*   **`MetaAhorroCreacionDTO.java`**: Para crear o editar una meta.
+*   **`MetaAhorroResponseDTO.java`**: Para enviar el estado de una meta (incluyendo el `montoAhorrado` calculado).
+*   **`AbonoRetiroDTO.java`**: Para manejar los abonos y retiros.
+
+---
+
+### 3. Repositorios
+
+#### `MetaAhorroRepository.java`
+```java
+package com.example.saveup.repository;
+
+import com.example.saveup.model.MetaAhorro;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+
+@Repository
+public interface MetaAhorroRepository extends JpaRepository<MetaAhorro, Long> {
+
+    List<MetaAhorro> findByUsuarioRut(String rut);
+
+    @Query("SELECT COALESCE(SUM(m.monto), 0.0) FROM Movimiento m WHERE m.metaAhorro.id = :metaId")
+    Double findTotalAhorradoByMetaId(@Param("metaId") Long metaId);
+}
+```
+
+---
+
+### 4. Lógica de Servicio
+
+#### `UsuarioService.java` (Extracto)
+Se modifica `registrarUsuario` para que, tras guardar un nuevo usuario, cree automáticamente una meta por defecto llamada "Ahorros".
+
+#### `MetaAhorroService.java`
+Contiene la lógica de negocio principal para:
+*   Crear, editar y obtener metas.
+*   Calcular el `montoAhorrado` en tiempo real.
+*   Realizar abonos (creando movimientos con monto negativo).
+*   Realizar retiros (creando movimientos con monto positivo).
+*   Eliminar metas, asegurando la devolución de los fondos al saldo principal.
+
+---
+
+### 5. Controller y Endpoints
+
+#### `MetaAhorroController.java`
+Expone la funcionalidad a través de una API RESTful.
+
+```java
+package com.example.saveup.controller;
+
+// ... (imports)
+
+@RestController
+@RequestMapping("/api/metas")
+public class MetaAhorroController {
+
+    @Autowired
+    private MetaAhorroService metaAhorroService;
+
+    @PostMapping
+    public ResponseEntity<?> crearMeta(@Valid @RequestBody MetaAhorroCreacionDTO dto) { /* ... */ }
+
+    @GetMapping("/usuario/{rut}")
+    public ResponseEntity<List<MetaAhorroResponseDTO>> obtenerMetas(@PathVariable String rut) { /* ... */ }
+
+    @PostMapping("/{metaId}/abonar")
+    public ResponseEntity<?> abonarAMeta(@PathVariable Long metaId, @Valid @RequestBody AbonoRetiroDTO dto) { /* ... */ }
+
+    @PostMapping("/{metaId}/retirar")
+    public ResponseEntity<?> retirarDeMeta(@PathVariable Long metaId, @Valid @RequestBody AbonoRetiroDTO dto) { /* ... */ }
+    
+    @PutMapping("/{metaId}")
+    public ResponseEntity<?> editarMeta(@PathVariable Long metaId, @Valid @RequestBody MetaAhorroCreacionDTO dto) { /* ... */ }
+
+    @DeleteMapping("/{metaId}")
+    public ResponseEntity<?> eliminarMeta(@PathVariable Long metaId) { /* ... */ }
+}
+```

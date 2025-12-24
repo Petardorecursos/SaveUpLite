@@ -1,31 +1,34 @@
 package com.example.saveuplite.api
 
+import com.google.gson.GsonBuilder
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-/**
- * Objeto singleton para crear y gestionar la instancia de Retrofit.
- */
 object RetrofitClient {
 
-    // URL base del backend desplegado en Render.
-    // private const val BASE_URL = "https://lite-backend-1wn9.onrender.com/"
-    // --- ¡IMPORTANTE! ---
-    // Para testear con un backend local en un dispositivo físico,
-    // reemplaza "TU_IP_LOCAL" con la dirección IPv4 de tu computador.
-    // Ejemplo: "http://192.168.1.105:8080/"
-     private const val BASE_URL = "http://192.168.18.8:8080/"
-    //private const val BASE_URL = "https://lite-backend-1wn9.onrender.com/"
+    // --- ¡IMPORTANTE! Elige la URL base correcta descomentando la línea que necesites ---
 
-    // Creación de la instancia de Retrofit usando un inicializador "lazy".
+    // 1. Para testear en el EMULADOR de Android Studio:
+    // private const val BASE_URL = "http://10.0.2.2:8080/"
+
+    // 2. Para testear en un DISPOSITIVO FÍSICO (asegúrate de que tu PC y el móvil estén en la misma red WiFi):
+    //private const val BASE_URL = "http://192.168.18.8:8080/"
+
+    // 3. Para producción (backend en Render):
+    private const val BASE_URL = "https://lite-backend-1wn9.onrender.com/"
+
+    // --- Configuración de Gson para el formato de fecha estándar ---
+    private val gson = GsonBuilder()
+        .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+        .create()
+
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create()) // Usa Gson para convertir JSON
+            .addConverterFactory(GsonConverterFactory.create(gson)) // Usa el Gson personalizado
             .build()
     }
 
-    // Expone públicamente la implementación de la interfaz ApiService.
     val apiService: ApiService by lazy {
         retrofit.create(ApiService::class.java)
     }

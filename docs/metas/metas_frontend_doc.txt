@@ -1,0 +1,51 @@
+# Documentación Técnica: Frontend de Metas de Ahorro
+
+**Versión:** 1.0
+**Fecha:** 2025-12-23
+
+Este documento detalla la implementación en el frontend (Android - Jetpack Compose) de la funcionalidad de Metas de Ahorro.
+
+---
+
+## 1. Arquitectura y Decisiones Clave
+
+La arquitectura del frontend se centra en el patrón MVVM (Model-View-ViewModel), utilizando un **ViewModel compartido** para garantizar la consistencia de los datos y una experiencia de usuario fluida a través de múltiples pantallas.
+
+### 1.1. ViewModel Compartido (`MetaAhorroViewModel`)
+
+*   **Decisión Técnica**: Se optó por instanciar el `MetaAhorroViewModel` una sola vez en un nivel superior (`AppNavHost`). Todas las pantallas relacionadas con las metas (`MetasScreen`, `DetalleMetaScreen`, `CrearMetaScreen`, etc.) reciben esta **misma instancia**. 
+*   **Beneficio**: Esto soluciona el problema de la "pantalla desactualizada". Cuando una pantalla (ej. `AbonoRetiroScreen`) modifica un dato, el cambio se refleja inmediatamente en el ViewModel. Al navegar de vuelta, las otras pantallas, que observan el mismo ViewModel, ya tienen la información más reciente sin necesidad de recargas manuales o complejas lógicas de paso de resultados.
+
+### 1.2. Flujo de Datos Asíncrono con Callbacks (`onSuccess`)
+
+*   **Decisión Técnica**: Todas las funciones del ViewModel que realizan operaciones de escritura en el backend (ej. `crearMeta`, `eliminarMeta`) fueron modificadas para aceptar un `lambda` `onSuccess: () -> Unit`.
+*   **Beneficio**: Esto resuelve las "condiciones de carrera" (race conditions). La lógica de navegación y la muestra de mensajes de éxito (Toasts) solo se ejecutan **después** de que el ViewModel ha confirmado que la llamada a la API fue exitosa y que la actualización de la lista local de metas (`obtenerMetas(rut).join()`) ha finalizado. Esto garantiza un flujo de datos predecible y robusto.
+
+---
+
+## 2. Implementación Detallada (Componentes Clave)
+
+### 2.1. Capa de Datos y Lógica
+
+*   **Modelos (`model/meta/`)**: Se crearon las data classes `MetaAhorro`, `MetaAhorroCreacion` y `AbonoRetiro` para mapear los DTOs del backend.
+*   **ApiService (`api/ApiService.kt`)**: Se añadieron los endpoints del `MetaAhorroController` (`/api/metas/...`).
+*   **ViewModel (`viewmodel/MetaAhorroViewModel.kt`)**: Actúa como la única fuente de verdad para el estado de la UI de las metas (`MetaAhorroUiState`).
+
+### 2.2. Capa de Interfaz de Usuario (UI)
+
+*   **`MetasScreen.kt`**: La pantalla principal. Muestra el total ahorrado y la lista de metas. Utiliza `LaunchedEffect` para cargar los datos iniciales. Navega al detalle o a la creación.
+
+*   **`CrearMetaScreen.kt`**: Un formulario para crear metas. Incluye mejoras de UX como botones de sugerencia con feedback visual y un `DatePickerDialog` para una selección de fecha intuitiva.
+
+*   **`EditarMetaScreen.kt`**: Reutiliza la estructura de `CrearMetaScreen`, pero utiliza `LaunchedEffect(metaAEditar)` para pre-rellenar los campos del formulario con los datos de la meta existente, facilitando la edición.
+
+*   **`DetalleMetaScreen.kt`**: El centro de operaciones. Muestra el progreso visual de la meta (usando `CircularProgressIndicator`) y contiene los botones que activan todas las acciones: Abonar, Retirar, Editar y Eliminar.
+
+*   **`AbonoRetiroScreen.kt`**: Una pantalla reutilizable que se adapta para ser un formulario de abono o de retiro según el parámetro "tipo" recibido en la ruta de navegación.
+
+### 2.3. Navegación (`navigation/NavGraph.kt`)
+
+*   Se añadieron las nuevas rutas, incluyendo el uso de argumentos para pasar datos (ej. `detail_goal/{metaId}`).
+*   Se implementó una función de ayuda (`fun detailGoal(metaId: Long)`) para construir las rutas de forma segura.
+*   El `composable` para cada pantalla de metas se configuró para recibir la instancia compartida del `MetaAhorroViewModel`.
+*   Se implementó una estrategia de navegación mejorada `navController.navigate(Routes.GOALS) { popUpTo(Routes.GOALS) { inclusive = true } }` para asegurar que, tras una operación, el usuario vuelva a una pantalla de lista siempre actualizada.

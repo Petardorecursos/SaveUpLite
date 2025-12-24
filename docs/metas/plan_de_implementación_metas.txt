@@ -1,0 +1,40 @@
+# Plan de Implementación: Metas de Ahorro
+
+**Versión:** 1.5
+**Fecha:** 2024-12-23
+**Estado:** COMPLETADO
+
+## 1. Objetivo Principal
+
+Permitir a los usuarios crear metas de ahorro personalizadas, transferir dinero desde su saldo principal a estas metas y visualizar su progreso, manteniendo la integridad contable del sistema donde el saldo total es siempre la suma de todos los movimientos.
+
+---
+
+## 2. Plan de Implementación Propuesto
+
+### **FASE 1: Backend (Spring Boot) - ✔️ COMPLETADA**
+
+*   **Paso 1: Definir Entidades**: `MetaAhorro`, `Movimiento` actualizado, `TipoMovimiento` actualizado.
+*   **Paso 2: Lógica de Negocio**: `MetaAhorroRepository`, `MetaAhorroService`, `UsuarioService` actualizado.
+*   **Paso 3: Exponer Endpoints**: `MetaAhorroController` con todos los endpoints necesarios.
+
+### **FASE 2: Frontend (Android - Jetpack Compose) - ✔️ COMPLETADA**
+
+*   **Paso 1: Modelos, API y ViewModel**: Data classes, `ApiService` actualizado y `MetaAhorroViewModel` compartido.
+*   **Paso 2: Construir Pantallas (UI)**:
+    *   `MetasScreen.kt`: Implementada.
+    *   `CrearMetaScreen.kt`: Implementada.
+    *   `DetalleMetaScreen.kt`: Implementada.
+    *   `AbonoRetiroScreen.kt`: Implementada.
+    *   `EditarMetaScreen.kt`: Implementada.
+*   **Paso 3: Conectar Navegación**: Todas las pantallas fueron correctamente añadidas al `NavGraph.kt` y conectadas entre sí.
+
+---
+
+## 3. Decisiones de Arquitectura Clave
+
+*   **Ahorros vs. Categorías**: Los ahorros no utilizan el sistema de `Categoria`, sino los `TipoMovimiento` `ABONO_META` y `RETIRO_META`.
+*   **Integridad del Saldo**: Se mantiene la ecuación `Saldo Total = SUM(todos los movimientos)`.
+*   **Cálculos en Tiempo Real**: El `montoAhorrado` se calcula siempre bajo demanda.
+*   **ViewModel Compartido**: Se utiliza una única instancia de `MetaAhorroViewModel` para todas las pantallas relacionadas, asegurando la consistencia de los datos en la UI.
+*   **Callbacks de Éxito (`onSuccess`)**: Se usan para manejar operaciones asíncronas, garantizando que la UI solo se actualice y navegue después de que las operaciones del backend y la recarga de datos hayan finalizado.

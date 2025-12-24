@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
 import com.example.saveuplite.api.RetrofitClient
@@ -25,12 +27,10 @@ import com.example.saveuplite.ui.screens.home.HomeScreen
 import com.example.saveuplite.ui.screens.form.FormScreen
 import com.example.saveuplite.ui.screens.list.ListScreen
 import com.example.saveuplite.ui.screens.market.MarketScreen
+import com.example.saveuplite.ui.screens.metas.*
 import com.example.saveuplite.ui.screens.nativeView.LocationScreen
 import com.example.saveuplite.ui.screens.nativeView.NotificationScreen
-import com.example.saveuplite.viewmodel.AuthViewModelFactory
-import com.example.saveuplite.viewmodel.LocationViewModel
-import com.example.saveuplite.viewmodel.UsuarioViewModel
-import com.example.saveuplite.viewmodel.AnalysisViewModel
+import com.example.saveuplite.viewmodel.*
 
 object Routes {
     const val AUTH = "auth"
@@ -39,11 +39,19 @@ object Routes {
     
     // --- Nuevas Rutas ---
     const val DEBTS = "debts"
-    const val ADD_DEBT = "add_debt" // <-- NUEVA RUTA
+    const val ADD_DEBT = "add_debt"
     const val GOALS = "goals"
+    const val CREATE_GOAL = "create_goal"
+    const val DETAIL_GOAL = "detail_goal/{metaId}"
+    const val EDIT_GOAL = "edit_goal/{metaId}" // <-- NUEVA RUTA
+    const val ABONO_RETIRO_META = "abono_retiro_meta/{metaId}/{tipo}"
     const val MARKET = "market"
-    const val ANALYSIS = "analysis" // <-- NUEVA RUTA
+    const val ANALYSIS = "analysis"
     const val CONVERTER = "converter"
+
+    fun detailGoal(metaId: Long) = "detail_goal/$metaId"
+    fun abonoRetiroMeta(metaId: Long, tipo: String) = "abono_retiro_meta/$metaId/$tipo"
+    fun editGoal(metaId: Long) = "edit_goal/$metaId" // <-- NUEVA FUNCIÓN
 
     // --- Rutas Legacy ---
     const val LEGACY_HOME = "legacyhome"
@@ -56,30 +64,52 @@ object Routes {
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
 @Composable
 fun AppNavHost(navController: NavHostController) {
-    // Para instanciar un ViewModel con un constructor personalizado, necesitamos su Factory.
     val application = LocalContext.current.applicationContext as Application
     val factory = AuthViewModelFactory(RetrofitClient.apiService, application)
     val usuarioViewModel: UsuarioViewModel = viewModel(factory = factory)
+    val metaAhorroViewModel: MetaAhorroViewModel = viewModel()
 
     AnimatedNavHost(
         navController = navController,
         startDestination = Routes.AUTH
     ) {
-        // AuthScreen ahora recibe el ViewModel como parámetro.
         composable(Routes.AUTH) { AuthScreen(navController, usuarioViewModel) }
-        
-        // Las otras pantallas sí usan la instancia compartida creada aquí.
         composable(Routes.HOME) { DashboardScreen(navController, usuarioViewModel) }
         composable(Routes.TRANSACTION_HISTORY) { TransactionHistoryScreen(navController, usuarioViewModel) }
 
         // --- Pantallas Nuevas ---
         composable(Routes.DEBTS) { DeudasScreen(navController, usuarioViewModel) }
         composable(Routes.ADD_DEBT) { AddDeudaScreen(navController, usuarioViewModel) }
-        composable(Routes.GOALS) { PlaceholderScreen(screenName = "Metas de Ahorro") }
+        composable(Routes.GOALS) { MetasScreen(navController, usuarioViewModel, metaAhorroViewModel) } 
+        composable(Routes.CREATE_GOAL) { CrearMetaScreen(navController, usuarioViewModel, metaAhorroViewModel) } 
+        composable(
+            route = Routes.DETAIL_GOAL,
+            arguments = listOf(navArgument("metaId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val metaId = backStackEntry.arguments?.getLong("metaId") ?: -1
+            DetalleMetaScreen(navController, metaId, usuarioViewModel, metaAhorroViewModel)
+        }
+        composable(
+            route = Routes.EDIT_GOAL,
+            arguments = listOf(navArgument("metaId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val metaId = backStackEntry.arguments?.getLong("metaId") ?: -1
+            EditarMetaScreen(navController, metaId, usuarioViewModel, metaAhorroViewModel)
+        }
+        composable(
+            route = Routes.ABONO_RETIRO_META,
+            arguments = listOf(
+                navArgument("metaId") { type = NavType.LongType },
+                navArgument("tipo") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val metaId = backStackEntry.arguments?.getLong("metaId") ?: -1
+            val tipo = backStackEntry.arguments?.getString("tipo") ?: "abono"
+            AbonoRetiroScreen(navController, metaId, tipo, usuarioViewModel, metaAhorroViewModel)
+        }
         composable(Routes.MARKET) { MarketScreen(navController = navController) }
         composable(Routes.ANALYSIS) { 
             val analysisViewModel: AnalysisViewModel = viewModel()
-            // Se asume que el usuario esta logueado si llega aca
             val rut = usuarioViewModel.uiState.value.currentUser?.rut ?: ""
             AnalysisScreen(navController, analysisViewModel, rut) 
         }
@@ -94,12 +124,5 @@ fun AppNavHost(navController: NavHostController) {
             LocationScreen(viewModel = locationViewModel, navController = navController)
         }
         composable(Routes.LIST) { ListScreen(navController) }
-    }
-}
-
-@Composable
-fun PlaceholderScreen(screenName: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Pantalla '$screenName' - En construcción.")
     }
 }
