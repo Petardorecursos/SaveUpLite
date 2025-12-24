@@ -26,7 +26,7 @@ import com.example.saveuplite.model.deuda.Deuda
 import com.example.saveuplite.model.deuda.EstadoDeuda
 import com.example.saveuplite.model.deuda.PagoDeuda
 import com.example.saveuplite.ui.navigation.Routes
-import com.example.saveuplite.ui.screens.dashboard.SoftUiBottomNav
+import com.example.saveuplite.ui.components.SoftUiBottomNav
 import com.example.saveuplite.ui.utils.NumberVisualTransformation
 import com.example.saveuplite.viewmodel.DeudaViewModel
 import com.example.saveuplite.viewmodel.DeudaViewModelFactory

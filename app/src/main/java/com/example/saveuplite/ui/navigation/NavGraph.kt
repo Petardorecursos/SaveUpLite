@@ -43,7 +43,7 @@ object Routes {
     const val GOALS = "goals"
     const val CREATE_GOAL = "create_goal"
     const val DETAIL_GOAL = "detail_goal/{metaId}"
-    const val EDIT_GOAL = "edit_goal/{metaId}" // <-- NUEVA RUTA
+    const val EDIT_GOAL = "edit_goal/{metaId}" 
     const val ABONO_RETIRO_META = "abono_retiro_meta/{metaId}/{tipo}"
     const val MARKET = "market"
     const val ANALYSIS = "analysis"
@@ -51,7 +51,7 @@ object Routes {
 
     fun detailGoal(metaId: Long) = "detail_goal/$metaId"
     fun abonoRetiroMeta(metaId: Long, tipo: String) = "abono_retiro_meta/$metaId/$tipo"
-    fun editGoal(metaId: Long) = "edit_goal/$metaId" // <-- NUEVA FUNCIÓN
+    fun editGoal(metaId: Long) = "edit_goal/$metaId" 
 
     // --- Rutas Legacy ---
     const val LEGACY_HOME = "legacyhome"
@@ -77,7 +77,6 @@ fun AppNavHost(navController: NavHostController) {
         composable(Routes.HOME) { DashboardScreen(navController, usuarioViewModel) }
         composable(Routes.TRANSACTION_HISTORY) { TransactionHistoryScreen(navController, usuarioViewModel) }
 
-        // --- Pantallas Nuevas ---
         composable(Routes.DEBTS) { DeudasScreen(navController, usuarioViewModel) }
         composable(Routes.ADD_DEBT) { AddDeudaScreen(navController, usuarioViewModel) }
         composable(Routes.GOALS) { MetasScreen(navController, usuarioViewModel, metaAhorroViewModel) } 

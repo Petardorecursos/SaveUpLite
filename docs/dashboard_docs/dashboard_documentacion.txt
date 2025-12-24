@@ -1,0 +1,63 @@
+# Documentación de Cambios - DashboardScreen.kt
+Fecha: 24 de Diciembre, 2025
+Autor: Antigravity Agent (Google Deepmind)
+
+## 1. Resumen de Cambios
+Se ha realizado una reingeniería visual y funcional de la pantalla principal (`DashboardScreen`), con el objetivo de integrar los módulos de Metas de Ahorro y Deudas, mejorar la estética bajo el concepto "Soft UI" y ofrecer indicadores financieros rápidos al usuario.
+
+## 2. Decisiones Técnicas
+
+### Integración de ViewModels
+- **Arquitectura**: Se integraron tres ViewModels independientes (`DashboardViewModel`, `MetaAhorroViewModel`, `DeudaViewModel`) para evitar un "God ViewModel" y mantener la separación de responsabilidades.
+- **Inyección de Dependencias**: 
+  - Se solucionó un **Crash Crítico** al instanciar `DeudaViewModel`. Dado que este ViewModel requiere parámetros en su constructor (`ApiService`), se implementó y utilizó `DeudaViewModelFactory` en la firma del composable:
+    ```kotlin
+    deudaViewModel: DeudaViewModel = viewModel(factory = DeudaViewModelFactory(RetrofitClient.apiService))
+    ```
+
+### Gestión de Estado y Datos
+- **Carga de Datos**: Se utiliza un `LaunchedEffect` trigerreado por el `rut` del usuario para disparar llamadas asíncronas a todos los endpoints necesarios (Dashboard, Metas, Deudas).
+- **Lógica deUI**:
+  - `FinancialHealthWidget`: La lógica de cálculo de porcentajes (Gastos / Ingresos) se maneja en la UI pero alimentada por totales pre-calculados en el `DashboardViewModel` (que ahora suma los últimos 20 movimientos).
+
+## 3. Diseño de UI (Soft UI / Neumorfismo Moderno)
+
+### Componentes Clave
+1.  **BalanceCard**: 
+    - Se unificó el estilo con el módulo de Metas, utilizando un degradado (`Brush.horizontalGradient`) con tonos `GradientStart` (Lavanda) y `GradientEnd` (Lila).
+    - Tipografía blanca y elevación alta (8.dp) para destacar.
+
+2.  **Financial Health Widget (Nuevo)**:
+    - **Propósito**: Ofrecer un vistazo rápido al estado financiero mensual.
+    - **Visual**: Tarjeta blanca con una barra de progreso.
+    - **Semántica de Color**: La barra cambia dinámicamente:
+      - < 50% Gasto: `PaleAqua` (Saludable).
+      - < 80% Gasto: Naranja Suave (Precaución).
+      - > 80% Gasto: `PalePink` (Crítico).
+    - **Ajuste de Visibilidad**: Se cambió el color del texto de "Ingresos" a `DarkTeal` (Verde Azulado Oscuro) para garantizar legibilidad y contraste.
+
+3.  **Transaction History (Historial)**:
+    - **Contenedor**: Se cambió el fondo a `LightBlueBg` (Azul Claro) para diferenciarlo visualmente del fondo general y aportar frescura.
+    - **Items**: Tarjetas blancas individuales con elevación suave (4.dp) para crear profundidad sobre el fondo azul.
+
+4.  **Widgets de Resumen (Ahorro y Deudas)**:
+    - Diseñados como tarjetas compactas con iconos circulares y navegación directa (`clickable`).
+    - Colores distintivos: `PaleTeal` para Ahorros y `PaleSalmon` para Deudas.
+
+## 4. Errores Corregidos
+
+- **Crash en Login**: La aplicación se cerraba al intentar navegar al Dashboard debido a una instanciación incorrecta de `DeudaViewModel` sin su factory. Corregido.
+- **Visibilidad (Contraste)**: Anteriormente, tarjetas blancas sobre fondos blancos (o gris muy claro) dificultaban la lectura. Se introdujo `LightBlueBg` y sombras más pronunciadas para corregirlo.
+- **Scroll Infinito**: Al añadir nuevos widgets, el contenido excedía el alto de la pantalla. Se añadió `.verticalScroll(rememberScrollState())` al contenedor principal.
+
+## 5. Observaciones
+
+- **Rendimiento**: La pantalla realiza múltiples llamadas de red simultáneas al inicio. Aunque funciona fluidamente para la carga actual, podría ser un punto de optimización si los datos crecen.
+- **Coherencia**: Se ha logrado una coherencia visual sólida entre el Dashboard, la pantalla de Creación de Metas y los Detalles de Meta.
+
+## 6. Room for Improvement (Mejoras Futuras)
+
+1.  **Unified UseCase / Repository**: Crear una clase repositorio que orqueste la llamada de datos del Dashboard para reducir la lógica en el `LaunchedEffect` y hacer una sola emisión de estado "Cargando".
+2.  **Animaciones**: La barra de progreso de salud financiera "salta" al valor final. Implementar `animateFloatAsState` suavizaría la experiencia.
+3.  **Hardcoded Strings**: Extraer todos los textos ("Resumen de Deudas", "Salud Financiera", etc.) a `strings.xml` para soportar localización.
+4.  **Skeleton Loading**: Reemplazar el `CircularProgressIndicator` general por un efecto "Skeleton" (esqueleto de carga) que mantenga la estructura de la UI mientras cargan los datos.

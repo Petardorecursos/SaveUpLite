@@ -13,6 +13,7 @@ import androidx.navigation.NavController
 import com.example.saveuplite.model.dto.MovimientoResponseDTO
 import com.example.saveuplite.model.enums.TipoMovimiento
 import com.example.saveuplite.ui.components.PieChartComponent
+import com.example.saveuplite.ui.components.SoftUiBottomNav
 import com.example.saveuplite.viewmodel.AnalysisViewModel
 import java.time.LocalDate
 
@@ -38,42 +39,47 @@ fun AnalysisScreen(
             }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Análisis de Gastos",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        if (expenseData.isNotEmpty()) {
-            PieChartComponent(data = expenseData)
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
+    Scaffold(
+        bottomBar = { SoftUiBottomNav(navController = navController) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
             Text(
-                text = "Detalle por Categoría",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
+                text = "Análisis de Gastos",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
             )
-            
-            LazyColumn {
-                items(expenseData.keys.toList()) { categoryName ->
-                     val amount = expenseData[categoryName] ?: 0.0
-                     ListItem(
-                         headlineContent = { Text(categoryName) },
-                         trailingContent = { Text("$${amount.toInt()}") }
-                     )
-                     Divider()
+
+            if (expenseData.isNotEmpty()) {
+                PieChartComponent(data = expenseData)
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text(
+                    text = "Detalle por Categoría",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                LazyColumn {
+                    items(expenseData.keys.toList()) { categoryName ->
+                         val amount = expenseData[categoryName] ?: 0.0
+                         ListItem(
+                             headlineContent = { Text(categoryName) },
+                             trailingContent = { Text("$${amount.toInt()}") }
+                         )
+                         Divider()
+                    }
                 }
+            } else {
+                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                     Text("No hay datos de gastos para mostrar.")
+                 }
             }
-        } else {
-             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                 Text("No hay datos de gastos para mostrar.")
-             }
         }
     }
 }

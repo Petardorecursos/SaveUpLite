@@ -21,6 +21,7 @@ val PaleTeal = Color(0xFFE2F5F4)      // Alternativa al aqua pálido.
 val MediumBlue = Color(0xFFBCBFFA)    // Azul Medio (para "Hearth Health")
 val LightBlueBg = Color(0xFFEAEBFC)   // Alternativa al azul medio.
 val DangerRed = Color(0xFFA63636)
+val DarkTeal = Color(0xFF00796B) // Verde azulado oscuro para texto de ingresos
 
 // Gradientes
 val GradientStart = Color(0xFF8F99F5) // Azul para gradiente.

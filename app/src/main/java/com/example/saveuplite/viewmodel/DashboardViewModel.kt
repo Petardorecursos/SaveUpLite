@@ -19,7 +19,9 @@ data class DashboardUiState(
     val errorMessage: String? = null,
     val saldoActual: Double = 0.0,
     val historialMovimientos: List<MovimientoResponseDTO> = emptyList(),
-    val categorias: List<CategoriaDTO> = emptyList() // Lista de categorías
+    val categorias: List<CategoriaDTO> = emptyList(),
+    val totalIngresos: Double = 0.0,
+    val totalGastos: Double = 0.0
 )
 
 class DashboardViewModel : ViewModel() {
@@ -38,16 +40,22 @@ class DashboardViewModel : ViewModel() {
             try {
                 // Llamadas a la API
                 val saldoResponse = RetrofitClient.apiService.obtenerSaldoActual(rut)
-                val movimientosResponse = RetrofitClient.apiService.obtenerMovimientosPorUsuario(rut, limit = 10) // <-- ¡NUEVO CAMBIO!
+                val movimientosResponse = RetrofitClient.apiService.obtenerMovimientosPorUsuario(rut, limit = 20)
 
                 if (saldoResponse.isSuccessful && saldoResponse.body() != null &&
                     movimientosResponse.isSuccessful && movimientosResponse.body() != null) {
-                    // Éxito en ambas llamadas
+                    
+                    val movimientos = movimientosResponse.body()!!
+                    val ingresos = movimientos.filter { it.monto > 0 }.sumOf { it.monto }
+                    val gastos = movimientos.filter { it.monto < 0 }.sumOf { kotlin.math.abs(it.monto) }
+
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             saldoActual = saldoResponse.body()!!.saldo,
-                            historialMovimientos = movimientosResponse.body()!!
+                            historialMovimientos = movimientos,
+                            totalIngresos = ingresos,
+                            totalGastos = gastos
                         )
                     }
                 } else {

@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -50,23 +51,28 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
-// --- sealed class para los items de navegación ---
-sealed class NavItem(val route: String, val icon: ImageVector, val label: String) {
-    object Home : NavItem(Routes.HOME, Icons.Filled.Home, "Inicio")
-    object Debts : NavItem(Routes.DEBTS, Icons.Filled.AccountBalanceWallet, "Deudas")
-    object Goals : NavItem(Routes.GOALS, Icons.Filled.Star, "Metas")
-    object Analysis : NavItem(Routes.ANALYSIS, Icons.Filled.PieChart, "Análisis")
-}
+import com.example.saveuplite.ui.components.SoftUiBottomNav
+
+import com.example.saveuplite.viewmodel.MetaAhorroViewModel
+import com.example.saveuplite.viewmodel.DeudaViewModel
+import com.example.saveuplite.viewmodel.DeudaViewModelFactory
+import com.example.saveuplite.api.RetrofitClient
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     navController: NavHostController,
     usuarioViewModel: UsuarioViewModel = viewModel(),
-    dashboardViewModel: DashboardViewModel = viewModel()
+    dashboardViewModel: DashboardViewModel = viewModel(),
+    metaAhorroViewModel: MetaAhorroViewModel = viewModel(),
+    deudaViewModel: DeudaViewModel = viewModel(factory = DeudaViewModelFactory(RetrofitClient.apiService))
 ) {
     val dashboardState by dashboardViewModel.uiState.collectAsState()
     val usuarioState by usuarioViewModel.uiState.collectAsState()
+    val metaAhorroState by metaAhorroViewModel.uiState.collectAsState()
+    val deudaState by deudaViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -105,6 +111,8 @@ fun DashboardScreen(
         usuarioState.currentUser?.rut?.let { 
             dashboardViewModel.cargarDatosDashboard(it) 
             dashboardViewModel.cargarCategorias() // Cargar categorías
+            metaAhorroViewModel.obtenerMetas(it) // Cargar metas
+            deudaViewModel.obtenerDeudas(it) // Cargar deudas
         }
     }
     LaunchedEffect(dashboardState.errorMessage) {
@@ -132,7 +140,11 @@ fun DashboardScreen(
             bottomBar = { SoftUiBottomNav(navController = navController) }
         ) { padding ->
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (dashboardState.isLoading && dashboardState.historialMovimientos.isEmpty()) {
@@ -146,10 +158,30 @@ fun DashboardScreen(
                         onGastoClick = { tipoMovimientoDialog = TipoMovimiento.GASTO_GENERAL; showAddTransactionDialog = true }
                     )
                     Spacer(Modifier.height(24.dp))
+                    FinancialHealthWidget(
+                        ingresos = dashboardState.totalIngresos,
+                        gastos = dashboardState.totalGastos
+                    )
+                    Spacer(Modifier.height(24.dp))
                     TransactionHistory(
                         historial = dashboardState.historialMovimientos,
                         onNavigateToHistory = { navController.navigate(Routes.TRANSACTION_HISTORY) }
                     )
+                    Spacer(Modifier.height(24.dp))
+                    SavingsSummaryWidget(
+                         totalAhorrado = metaAhorroState.totalAhorrado,
+                         goalCount = metaAhorroState.metas.size,
+                         onClick = { navController.navigate(Routes.GOALS) }
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    
+                    val totalDeuda = deudaState.deudas.sumOf { it.montoRestante }
+                    DebtSummaryWidget(
+                        totalDeuda = totalDeuda,
+                        debtCount = deudaState.deudas.count { it.montoRestante > 0 },
+                        onClick = { navController.navigate(Routes.DEBTS) }
+                    )
+                    Spacer(Modifier.height(24.dp))
                 }
             }
         }
@@ -230,53 +262,37 @@ private fun DrawerContent(navController: NavHostController, usuarioViewModel: Us
     }
 }
 
-@Composable
-fun SoftUiBottomNav(navController: NavController) {
-    val items = listOf(NavItem.Home, NavItem.Debts, NavItem.Goals, NavItem.Analysis)
-    Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().shadow(elevation = 10.dp, shape = RoundedCornerShape(24.dp), spotColor = Color(0x30DEDEE0)).shadow(elevation = 10.dp, shape = RoundedCornerShape(24.dp), spotColor = Color.White.copy(alpha = 0.9f)).background(Color.White, RoundedCornerShape(24.dp)).padding(horizontal = 8.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentRoute = navBackStackEntry?.destination?.route
-            items.forEach { item ->
-                SoftUiBottomNavItem(item = item, isSelected = currentRoute == item.route) {
-                    navController.navigate(item.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SoftUiBottomNavItem(item: NavItem, isSelected: Boolean, onClick: () -> Unit) {
-    Box(modifier = Modifier.clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        if (isSelected) {
-            Box(
-                modifier = Modifier.size(48.dp).shadow(4.dp, CircleShape, spotColor = Color(0x30DEDEE0)).shadow(4.dp, CircleShape, spotColor = Color.White.copy(alpha = 0.9f)).background(LavenderBlue, CircleShape),
-                contentAlignment = Alignment.Center
-            ) { Icon(item.icon, contentDescription = item.label, tint = Color.White) }
-        } else {
-            Icon(item.icon, contentDescription = item.label, tint = DarkGrayText.copy(alpha = 0.8f), modifier = Modifier.padding(12.dp))
-        }
-    }
-}
 
 @Composable
 fun BalanceCard(saldoActual: Double) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MediumBlue), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-        Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.Start) {
-            Text("Saldo Actual", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = formatToCLP(saldoActual, false), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(32.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(GradientStart, GradientEnd)
+                    )
+                )
+                .padding(32.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+                Text(
+                    "Saldo Actual", 
+                    style = MaterialTheme.typography.titleMedium, 
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = formatToCLP(saldoActual, false), 
+                    style = MaterialTheme.typography.displayLarge, 
+                    fontWeight = FontWeight.ExtraBold, 
+                    color = Color.White
+                )
+            }
         }
     }
 }
@@ -284,12 +300,24 @@ fun BalanceCard(saldoActual: Double) {
 @Composable
 fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Button(onClick = onIngresoClick, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = PaleAqua, contentColor = DarkGrayText)) {
+        Button(
+            onClick = onIngresoClick, 
+            modifier = Modifier.weight(1f).height(56.dp), 
+            shape = RoundedCornerShape(16.dp), 
+            colors = ButtonDefaults.buttonColors(containerColor = PaleAqua, contentColor = DarkGrayText),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+        ) {
             Icon(Icons.Filled.Add, contentDescription = "Ingreso")
             Spacer(modifier = Modifier.width(8.dp))
             Text("Ingreso", fontWeight = FontWeight.SemiBold)
         }
-        Button(onClick = onGastoClick, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = PalePink, contentColor = DarkGrayText)) {
+        Button(
+            onClick = onGastoClick, 
+            modifier = Modifier.weight(1f).height(56.dp), 
+            shape = RoundedCornerShape(16.dp), 
+            colors = ButtonDefaults.buttonColors(containerColor = PalePink, contentColor = DarkGrayText),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+        ) {
             Icon(Icons.Filled.Remove, contentDescription = "Gasto")
             Spacer(modifier = Modifier.width(8.dp))
             Text("Gasto", fontWeight = FontWeight.SemiBold)
@@ -299,17 +327,53 @@ fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
 
 @Composable
 fun TransactionHistory(historial: List<MovimientoResponseDTO>, onNavigateToHistory: () -> Unit) {
-    Column {
-        Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToHistory).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Últimos Movimientos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-            Icon(Icons.Default.ChevronRight, contentDescription = "Ver historial completo", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        if (historial.isEmpty()) {
-            Text("Aún no tienes movimientos.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                historial.take(3).forEach { movimiento -> TransactionItem(item = movimiento) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = LightBlueBg), // Changed to Light Blue
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNavigateToHistory)
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, 
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Últimos Movimientos", 
+                    style = MaterialTheme.typography.titleLarge, 
+                    fontWeight = FontWeight.Bold, 
+                    color = DarkGrayText
+                )
+                // Arrow with circle background and depth
+                Surface(
+                    shape = CircleShape,
+                    color = SoftWhite,
+                    shadowElevation = 4.dp
+                ) {
+                    Icon(
+                        Icons.Default.ChevronRight, 
+                        contentDescription = "Ver historial completo", 
+                        tint = DarkGrayText.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(6.dp)
+                    )
+                }
+            }
+            
+            if (historial.isEmpty()) {
+                Text(
+                    "Aún no tienes movimientos.", 
+                    style = MaterialTheme.typography.bodyMedium, 
+                    color = MediumGrayText, 
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    historial.take(3).forEach { movimiento -> TransactionItem(item = movimiento) }
+                }
             }
         }
     }
@@ -323,10 +387,15 @@ fun TransactionItem(item: MovimientoResponseDTO) {
 
     val dateFormat = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(), 
+        shape = RoundedCornerShape(18.dp), 
+        colors = CardDefaults.cardColors(containerColor = Color.White), // White background
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // Soft depth
+    ) {
         Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = item.descripcion, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = item.descripcion, fontWeight = FontWeight.SemiBold, color = DarkGrayText)
                 Spacer(Modifier.height(4.dp))
                 // Muestra la categoría si está disponible
                 item.categoria?.let {
@@ -338,7 +407,7 @@ fun TransactionItem(item: MovimientoResponseDTO) {
                     )
                     Spacer(Modifier.height(4.dp))
                 }
-                Text(text = dateFormat.format(item.fecha), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = dateFormat.format(item.fecha), style = MaterialTheme.typography.bodySmall, color = MediumGrayText)
             }
             Text(text = formattedAmount, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = amountColor)
         }
@@ -431,4 +500,201 @@ private fun formatToCLP(amount: Double, withSign: Boolean): String {
         return "+ $formattedText"
     }
     return formattedText
+}
+
+@Composable
+fun SavingsSummaryWidget(totalAhorrado: Double, goalCount: Int, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = PaleTeal),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(20.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.Star, // Using Star icon for goals
+                    contentDescription = null,
+                    tint = DarkGrayText,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = "Mis Metas de Ahorro",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = DarkGrayText
+                )
+                Text(
+                    text = "${formatToCLP(totalAhorrado, false)} en $goalCount metas",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = DarkGrayText.copy(alpha = 0.8f)
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Surface(
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.5f)
+            ) {
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = DarkGrayText,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DebtSummaryWidget(totalDeuda: Double, debtCount: Int, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = PaleSalmon),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(20.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.MoneyOff, 
+                    contentDescription = null,
+                    tint = DarkGrayText,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = "Resumen de Deudas",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = DarkGrayText
+                )
+                Text(
+                    text = "${formatToCLP(totalDeuda, false)} por pagar",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = DarkGrayText.copy(alpha = 0.8f)
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Surface(
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.5f)
+            ) {
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = DarkGrayText,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FinancialHealthWidget(ingresos: Double, gastos: Double) {
+    // Evitar división por cero
+    val progress = if (ingresos > 0) (gastos / ingresos).toFloat().coerceIn(0f, 1f) else 0f
+    
+    // Determinar color basado en el porcentaje de gasto
+    val healthColor = when {
+        progress < 0.5f -> PaleAqua // Saludable (Verde suave)
+        progress < 0.8f -> Color(0xFFFFE0B2) // Precaución (Naranja suave)
+        else -> PalePink // Crítico (Rojo suave)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Salud Financiera",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = DarkGrayText
+                )
+                Text(
+                    text = "${(progress * 100).toInt()}% Gastado",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if(progress > 0.8f) DangerRed else MediumGrayText
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Barra de progreso personalizada
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(LightGray)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(healthColor)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Ingresos", style = MaterialTheme.typography.labelSmall, color = MediumGrayText)
+                    Text(formatToCLP(ingresos, false), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = DarkTeal) // Changed to DarkTeal
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Gastos", style = MaterialTheme.typography.labelSmall, color = MediumGrayText)
+                    Text(formatToCLP(gastos, false), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = DangerRed)
+                }
+            }
+        }
+    }
 }
