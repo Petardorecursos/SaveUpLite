@@ -37,49 +37,118 @@ fun AnalysisScreen(
             .mapValues { entry -> 
                 entry.value.sumOf { Math.abs(it.monto) }
             }
+            .toList()
+            .sortedByDescending { it.second }
+            .toMap()
     }
 
     Scaffold(
+        containerColor = com.example.saveuplite.ui.theme.SoftWhite,
         bottomBar = { SoftUiBottomNav(navController = navController) }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Análisis de Gastos",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+        if (expenseData.isNotEmpty()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Análisis de Gastos",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = com.example.saveuplite.ui.theme.DarkGrayText
+                    )
+                }
 
-            if (expenseData.isNotEmpty()) {
-                PieChartComponent(data = expenseData)
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Text(
-                    text = "Detalle por Categoría",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                LazyColumn {
-                    items(expenseData.keys.toList()) { categoryName ->
-                         val amount = expenseData[categoryName] ?: 0.0
-                         ListItem(
-                             headlineContent = { Text(categoryName) },
-                             trailingContent = { Text("$${amount.toInt()}") }
-                         )
-                         Divider()
+                // Tarjeta del Gráfico
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Distribución de Gastos",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                color = com.example.saveuplite.ui.theme.DarkGrayText,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            PieChartComponent(data = expenseData)
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
                     }
                 }
-            } else {
-                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                     Text("No hay datos de gastos para mostrar.")
-                 }
+
+                // Tarjeta de Detalle por Categoría
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(24.dp)) {
+                            Text(
+                                text = "Detalle por Categoría",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = com.example.saveuplite.ui.theme.DarkGrayText
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            expenseData.forEach { (categoryName, amount) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // Bullet point colored? For now just text
+                                        Text(
+                                            text = categoryName,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = com.example.saveuplite.ui.theme.DarkGrayText,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                        )
+                                    }
+                                    Text(
+                                        text = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("es", "CL")).format(amount),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                        color = com.example.saveuplite.ui.theme.MetricRed
+                                    )
+                                }
+                                Divider(color = com.example.saveuplite.ui.theme.LightGray)
+                            }
+                        }
+                    }
+                }
             }
+        } else {
+             Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues), 
+                contentAlignment = Alignment.Center
+            ) {
+                 Text(
+                    "No hay datos de gastos para mostrar.",
+                    color = com.example.saveuplite.ui.theme.MediumGrayText
+                 )
+             }
         }
     }
 }

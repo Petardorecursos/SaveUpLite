@@ -108,10 +108,15 @@ El `DeudaViewModel` orquesta toda la lógica de la UI y la interacción con la c
 
 #### 4.4.3. `PagoDeudaDialog` (Dentro de `DeudasScreen.kt`)
 *   **Componente**: Un `AlertDialog` que se muestra al intentar pagar una deuda.
-*   **Funcionalidad Avanzada**: Permite al usuario elegir entre dos modos de pago mediante `RadioButton`:
-    1.  **Monto Cuota**: Calcula y pre-rellena automáticamente el monto de la cuota (`monto restante / cuotas restantes`). El campo de texto se deshabilita.
-    2.  **Monto Personalizado**: Permite al usuario ingresar un monto diferente.
-*   **Lógica de Cálculo**: También utiliza el cálculo de `cuotasPagadasReales` para sugerir correctamente el número de la siguiente cuota en la descripción por defecto (ej. "Pago cuota 5").
+*   **Funcionalidad Avanzada**: Permite al usuario elegir entre tres modos de pago mediante `RadioButton`:
+    1.  **Monto Cuota**: Calcula y pre-rellena automáticamente el monto de la cuota (`monto restante / cuotas restantes`). El campo de texto se deshabilita para evitar errores.
+    2.  **Varias Cuotas (Nuevo)**: Muestra un selector de cantidad (stepper) que permite elegir pagar múltiples cuotas de una vez.
+        *   **Selector Dinámico**: Limitado entre 1 y el número de `cuotas restantes`.
+        *   **Cálculo Automático**: El monto se actualiza en tiempo real (`valorCuota * cantidadSeleccionada`) y el campo permanece en modo solo lectura.
+        *   **Descripción Inteligente**: Genera automáticamente una descripción de rango (ej. "Pago cuotas 3 a 5").
+    3.  **Monto Personalizado**: Permite al usuario ingresar un monto diferente libremente.
+*   **Interacción con Backend**: Independientemente de la opción, se envía una única transacción `PagoDeuda` al backend. La lógica del servidor procesa el monto acumulado sin necesitar cambios en la API.
+*   **Lógica de Cálculo**: Utiliza el cálculo de `cuotasPagadasReales` para asegurar que el selector de cuotas y las descripciones sugeridas sean siempre precisas, incluso si hubo pagos parciales previos.
 
 ### 4.5. Navegación (`NavGraph.kt`)
 *   Se añadieron las rutas `Routes.DEBTS` y `Routes.ADD_DEBT`.

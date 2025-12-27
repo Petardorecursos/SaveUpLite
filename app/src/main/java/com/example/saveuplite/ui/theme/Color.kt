@@ -21,7 +21,15 @@ val PaleTeal = Color(0xFFE2F5F4)      // Alternativa al aqua pálido.
 val MediumBlue = Color(0xFFBCBFFA)    // Azul Medio (para "Hearth Health")
 val LightBlueBg = Color(0xFFEAEBFC)   // Alternativa al azul medio.
 val DangerRed = Color(0xFFA63636)
+val SaturatedSalmon = Color(0xFFFF8A80) // Salmón más saturado para progreso
+val PowerPink = Color(0xFFE91E63) // Para el FAB
 val DarkTeal = Color(0xFF00796B) // Verde azulado oscuro para texto de ingresos
+val MetricGreen = Color(0xFFAED581) // Verde pastel más suave
+val MetricRed = Color(0xFFE57373) // Rojo pastel más suave
+
+// Nuevos colores solicitados
+val MintGreen = Color(0xFF80CBC4) // Verde Menta
+val SoftCoral = Color(0xFFFF8A80) // Coral Suave
 
 // Gradientes
 val GradientStart = Color(0xFF8F99F5) // Azul para gradiente.

@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -176,7 +177,7 @@ private fun MetaAhorroItem(meta: MetaAhorro, index: Int, onClick: () -> Unit) {
             .clickable { onClick() },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
@@ -224,12 +225,14 @@ private fun MetaAhorroItem(meta: MetaAhorro, index: Int, onClick: () -> Unit) {
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
+                // Barra con borde para profundidad
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(10.dp)
-                        .clip(RoundedCornerShape(5.dp)),
+                        .clip(RoundedCornerShape(5.dp))
+                        .border(2.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(5.dp)),
                     color = Color.White,
                     trackColor = Color.White.copy(alpha = 0.3f)
                 )

@@ -21,7 +21,8 @@ data class DashboardUiState(
     val historialMovimientos: List<MovimientoResponseDTO> = emptyList(),
     val categorias: List<CategoriaDTO> = emptyList(),
     val totalIngresos: Double = 0.0,
-    val totalGastos: Double = 0.0
+    val totalGastos: Double = 0.0,
+    val selectedDate: java.time.LocalDate = java.time.LocalDate.now() // Nuevo campo: Fecha seleccionada para el filtro
 )
 
 class DashboardViewModel : ViewModel() {
@@ -29,9 +30,12 @@ class DashboardViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState = _uiState.asStateFlow()
 
+    // Lista completa de movimientos en memoria para filtrar sin recargar la API cada vez si no es necesario (opcional, pero por ahora recargamos todo para asegurar consistencia)
+    private var allMovimientos: List<MovimientoResponseDTO> = emptyList()
+
     /**
      * Carga el saldo y el historial de movimientos desde la API.
-     * AHORA PIDE SOLO LOS ÚLTIMOS 10 MOVIMIENTOS PARA EL DASHBOARD.
+     * Ahora trae un límite mayor (o todos) para permitir filtrado local por fecha.
      */
     fun cargarDatosDashboard(rut: String) {
         viewModelScope.launch {
@@ -39,27 +43,27 @@ class DashboardViewModel : ViewModel() {
 
             try {
                 // Llamadas a la API
+                // Solicitamos un límite alto (ej. 1000) para tener historial suficiente para filtrar por meses anteriores.
+                // Idealmente la API soportaría filtros de fecha.
                 val saldoResponse = RetrofitClient.apiService.obtenerSaldoActual(rut)
-                val movimientosResponse = RetrofitClient.apiService.obtenerMovimientosPorUsuario(rut, limit = 20)
+                val movimientosResponse = RetrofitClient.apiService.obtenerMovimientosPorUsuario(rut, limit = 1000)
 
                 if (saldoResponse.isSuccessful && saldoResponse.body() != null &&
                     movimientosResponse.isSuccessful && movimientosResponse.body() != null) {
                     
-                    val movimientos = movimientosResponse.body()!!
-                    val ingresos = movimientos.filter { it.monto > 0 }.sumOf { it.monto }
-                    val gastos = movimientos.filter { it.monto < 0 }.sumOf { kotlin.math.abs(it.monto) }
+                    allMovimientos = movimientosResponse.body()!!
+                    
+                    // Calculamos los totales basados en la fecha seleccionada actual
+                    recalcularTotalesPorFecha(_uiState.value.selectedDate)
 
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             saldoActual = saldoResponse.body()!!.saldo,
-                            historialMovimientos = movimientos,
-                            totalIngresos = ingresos,
-                            totalGastos = gastos
+                            historialMovimientos = allMovimientos.take(10), // Para el historial mostramos solo los últimos 10 reales
                         )
                     }
                 } else {
-                    // Error en alguna de las llamadas
                     val errorMsg = "Error: ${saldoResponse.code()} / ${movimientosResponse.code()}"
                     _uiState.update { it.copy(isLoading = false, errorMessage = errorMsg) }
                 }
@@ -69,6 +73,33 @@ class DashboardViewModel : ViewModel() {
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Error inesperado: ${e.message}") }
             }
+        }
+    }
+
+    /**
+     * Cambia la fecha de filtro y recalcula los totales.
+     */
+    fun cambiarFechaFiltro(nuevaFecha: java.time.LocalDate) {
+        _uiState.update { it.copy(selectedDate = nuevaFecha) }
+        recalcularTotalesPorFecha(nuevaFecha)
+    }
+
+    private fun recalcularTotalesPorFecha(fecha: java.time.LocalDate) {
+        // Filtrar movimientos que correspondan al mes y año de 'fecha'
+        val movimientosMes = allMovimientos.filter { mov ->
+             // Convertir Date legacy a LocalDate
+             val movDate = mov.fecha.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+             movDate.month == fecha.month && movDate.year == fecha.year
+        }
+
+        val ingresos = movimientosMes.filter { it.monto > 0 }.sumOf { it.monto }
+        val gastos = movimientosMes.filter { it.monto < 0 }.sumOf { kotlin.math.abs(it.monto) }
+
+        _uiState.update {
+            it.copy(
+                totalIngresos = ingresos,
+                totalGastos = gastos
+            )
         }
     }
 
@@ -94,7 +125,6 @@ class DashboardViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            // El backend espera que los gastos sean negativos.
             val montoCorregido = if (tipo == TipoMovimiento.GASTO_GENERAL) -kotlin.math.abs(monto) else kotlin.math.abs(monto)
 
             val dto = MovimientoRegistroDTO(
@@ -108,7 +138,6 @@ class DashboardViewModel : ViewModel() {
             try {
                 val response = RetrofitClient.apiService.registrarMovimiento(dto)
                 if (response.isSuccessful) {
-                    // Al registrar con éxito, recargamos los datos para reflejar el cambio.
                     cargarDatosDashboard(rut)
                 } else {
                     _uiState.update { it.copy(isLoading = false, errorMessage = "Error al registrar (Código: ${response.code()})") }

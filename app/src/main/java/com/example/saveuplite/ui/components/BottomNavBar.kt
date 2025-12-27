@@ -37,14 +37,20 @@ sealed class NavItem(val route: String, val icon: ImageVector, val label: String
 @Composable
 fun SoftUiBottomNav(navController: NavController) {
     val items = listOf(NavItem.Home, NavItem.Debts, NavItem.Goals, NavItem.Analysis)
-    Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 24.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth()
-                .shadow(elevation = 16.dp, shape = RoundedCornerShape(24.dp), spotColor = Color(0x30DEDEE0))
-                .shadow(elevation = 16.dp, shape = RoundedCornerShape(24.dp), spotColor = Color.White.copy(alpha = 0.9f))
-                .background(Color.White, RoundedCornerShape(24.dp))
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+            modifier = Modifier
+                .wrapContentWidth()
+                .shadow(elevation = 16.dp, shape = RoundedCornerShape(32.dp), spotColor = Color(0x30DEDEE0))
+                .shadow(elevation = 16.dp, shape = RoundedCornerShape(32.dp), spotColor = Color.White.copy(alpha = 0.9f))
+                .background(Color.White, RoundedCornerShape(32.dp))
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val navBackStackEntry by navController.currentBackStackEntryAsState()

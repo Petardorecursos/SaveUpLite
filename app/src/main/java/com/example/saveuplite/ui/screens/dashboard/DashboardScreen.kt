@@ -6,6 +6,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -158,9 +159,13 @@ fun DashboardScreen(
                         onGastoClick = { tipoMovimientoDialog = TipoMovimiento.GASTO_GENERAL; showAddTransactionDialog = true }
                     )
                     Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(16.dp))
+                    
                     FinancialHealthWidget(
                         ingresos = dashboardState.totalIngresos,
-                        gastos = dashboardState.totalGastos
+                        gastos = dashboardState.totalGastos,
+                        selectedDate = dashboardState.selectedDate,
+                        onDateChange = { newDate -> dashboardViewModel.cambiarFechaFiltro(newDate) }
                     )
                     Spacer(Modifier.height(24.dp))
                     TransactionHistory(
@@ -304,10 +309,10 @@ fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
             onClick = onIngresoClick, 
             modifier = Modifier.weight(1f).height(56.dp), 
             shape = RoundedCornerShape(16.dp), 
-            colors = ButtonDefaults.buttonColors(containerColor = PaleAqua, contentColor = DarkGrayText),
+            colors = ButtonDefaults.buttonColors(containerColor = MintGreen, contentColor = Color.White), // Updated to MintGreen
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "Ingreso")
+            Icon(Icons.Filled.Add, contentDescription = "Ingreso", tint = Color.White)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Ingreso", fontWeight = FontWeight.SemiBold)
         }
@@ -315,10 +320,10 @@ fun ActionButtons(onIngresoClick: () -> Unit, onGastoClick: () -> Unit) {
             onClick = onGastoClick, 
             modifier = Modifier.weight(1f).height(56.dp), 
             shape = RoundedCornerShape(16.dp), 
-            colors = ButtonDefaults.buttonColors(containerColor = PalePink, contentColor = DarkGrayText),
+            colors = ButtonDefaults.buttonColors(containerColor = SoftCoral, contentColor = Color.White), // Updated to SoftCoral
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
-            Icon(Icons.Filled.Remove, contentDescription = "Gasto")
+            Icon(Icons.Filled.Remove, contentDescription = "Gasto", tint = Color.White)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Gasto", fontWeight = FontWeight.SemiBold)
         }
@@ -330,8 +335,8 @@ fun TransactionHistory(historial: List<MovimientoResponseDTO>, onNavigateToHisto
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = LightBlueBg), // Changed to Light Blue
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White), // Updated to White
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp) // Increased elevation
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
@@ -623,7 +628,14 @@ fun DebtSummaryWidget(totalDeuda: Double, debtCount: Int, onClick: () -> Unit) {
 }
 
 @Composable
-fun FinancialHealthWidget(ingresos: Double, gastos: Double) {
+fun FinancialHealthWidget(
+    ingresos: Double,
+    gastos: Double,
+    selectedDate: java.time.LocalDate,
+    onDateChange: (java.time.LocalDate) -> Unit
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
     // Evitar división por cero
     val progress = if (ingresos > 0) (gastos / ingresos).toFloat().coerceIn(0f, 1f) else 0f
     
@@ -635,7 +647,8 @@ fun FinancialHealthWidget(ingresos: Double, gastos: Double) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth()
+            .animateContentSize(), // Smooth animation for expansion
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
@@ -648,12 +661,25 @@ fun FinancialHealthWidget(ingresos: Double, gastos: Double) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Salud Financiera",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = DarkGrayText
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Salud Financiera",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = DarkGrayText
+                    )
+                    IconButton(
+                        onClick = { isExpanded = !isExpanded },
+                        modifier = Modifier.padding(start = 8.dp).size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarToday,
+                            contentDescription = "Filtrar por fecha",
+                            tint = LavenderBlue
+                        )
+                    }
+                }
+                
                 Text(
                     text = "${(progress * 100).toInt()}% Gastado",
                     style = MaterialTheme.typography.bodySmall,
@@ -661,24 +687,29 @@ fun FinancialHealthWidget(ingresos: Double, gastos: Double) {
                     color = if(progress > 0.8f) DangerRed else MediumGrayText
                 )
             }
+            
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(16.dp))
+                com.example.saveuplite.ui.components.MonthYearSelector(
+                    currentDate = selectedDate,
+                    onDateChange = onDateChange,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Barra de progreso personalizada
-            Box(
+            // Barra de progreso estilo DeudasScreen
+            LinearProgressIndicator(
+                progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(LightGray)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(healthColor)
-                )
-            }
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)), // Rounded corners for consistency
+                color = SaturatedSalmon, // Updated to match DeudasScreen progress color
+                trackColor = LightGray
+            )
             
             Spacer(modifier = Modifier.height(12.dp))
             
