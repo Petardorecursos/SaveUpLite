@@ -69,55 +69,66 @@ fun MetasScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SoftWhite)
             )
         },
-        bottomBar = { SoftUiBottomNav(navController = navController) },
+        // bottomBar removed to allow floating effect
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate(Routes.CREATE_GOAL) },
                 containerColor = LavenderBlue,
                 contentColor = Color.White,
-                shape = CircleShape
+                shape = CircleShape,
+                modifier = Modifier.padding(bottom = 80.dp) // Elevated to sit above the floating nav
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Crear Meta")
             }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
-            TotalAhorradoCard(totalAhorrado = metaAhorroState.totalAhorrado)
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                "Mis Metas", 
-                style = MaterialTheme.typography.titleLarge, 
-                fontWeight = FontWeight.Bold,
-                color = DarkGrayText
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TotalAhorradoCard(totalAhorrado = metaAhorroState.totalAhorrado)
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    "Mis Metas", 
+                    style = MaterialTheme.typography.titleLarge, 
+                    fontWeight = FontWeight.Bold,
+                    color = DarkGrayText
+                )
+                Spacer(modifier = Modifier.height(16.dp))
 
-            if (metaAhorroState.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = LavenderBlue)
-                }
-            } else if (metaAhorroState.metas.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Aún no tienes metas. ¡Crea una!", color = MediumGrayText)
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
-                ) {
-                    itemsIndexed(metaAhorroState.metas) { index, meta ->
-                        MetaAhorroItem(meta = meta, index = index, onClick = { navController.navigate(Routes.detailGoal(meta.id)) })
+                if (metaAhorroState.isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = LavenderBlue)
+                    }
+                } else if (metaAhorroState.metas.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Aún no tienes metas. ¡Crea una!", color = MediumGrayText)
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 100.dp) // Added padding to avoid overlap
+                    ) {
+                        itemsIndexed(metaAhorroState.metas) { index, meta ->
+                            MetaAhorroItem(meta = meta, index = index, onClick = { navController.navigate(Routes.detailGoal(meta.id)) })
+                        }
                     }
                 }
+            }
+            
+            // Barra de navegación flotante
+            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                SoftUiBottomNav(navController = navController)
             }
         }
     }
@@ -203,7 +214,7 @@ private fun MetaAhorroItem(meta: MetaAhorro, index: Int, onClick: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             if (meta.montoObjetivo != null && meta.montoObjetivo > 0) {
-                val progress = (meta.montoAhorrado / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
+                val progress = (meta.montoActual / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -211,7 +222,7 @@ private fun MetaAhorroItem(meta: MetaAhorro, index: Int, onClick: () -> Unit) {
                     verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
-                        text = formatToCLP(meta.montoAhorrado),
+                        text = formatToCLP(meta.montoActual),
                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
                         color = contentColor
                     )
@@ -246,7 +257,7 @@ private fun MetaAhorroItem(meta: MetaAhorro, index: Int, onClick: () -> Unit) {
 
             } else {
                 Text(
-                    text = formatToCLP(meta.montoAhorrado),
+                    text = formatToCLP(meta.montoActual),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
                     color = contentColor
                 )

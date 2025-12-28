@@ -44,111 +44,120 @@ fun AnalysisScreen(
 
     Scaffold(
         containerColor = com.example.saveuplite.ui.theme.SoftWhite,
-        bottomBar = { SoftUiBottomNav(navController = navController) }
+        // bottomBar removed
     ) { paddingValues ->
-        if (expenseData.isNotEmpty()) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                item {
-                    Text(
-                        text = "Análisis de Gastos",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        color = com.example.saveuplite.ui.theme.DarkGrayText
-                    )
-                }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            if (expenseData.isNotEmpty()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp), // Increased bottom padding
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    item {
+                        Text(
+                            text = "Análisis de Gastos",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            color = com.example.saveuplite.ui.theme.DarkGrayText
+                        )
+                    }
 
-                // Tarjeta del Gráfico
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                    // Tarjeta del Gráfico
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                         ) {
-                            Text(
-                                text = "Distribución de Gastos",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                color = com.example.saveuplite.ui.theme.DarkGrayText,
-                                modifier = Modifier.align(Alignment.Start)
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            PieChartComponent(data = expenseData)
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Distribución de Gastos",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                    color = com.example.saveuplite.ui.theme.DarkGrayText,
+                                    modifier = Modifier.align(Alignment.Start)
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                PieChartComponent(data = expenseData)
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
                         }
                     }
-                }
 
-                // Tarjeta de Detalle por Categoría
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(24.dp)) {
-                            Text(
-                                text = "Detalle por Categoría",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                color = com.example.saveuplite.ui.theme.DarkGrayText
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            expenseData.forEach { (categoryName, amount) ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        // Bullet point colored? For now just text
+                    // Tarjeta de Detalle por Categoría
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(24.dp)) {
+                                Text(
+                                    text = "Detalle por Categoría",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    color = com.example.saveuplite.ui.theme.DarkGrayText
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                expenseData.forEach { (categoryName, amount) ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            // Bullet point colored? For now just text
+                                            Text(
+                                                text = categoryName,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = com.example.saveuplite.ui.theme.DarkGrayText,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                            )
+                                        }
                                         Text(
-                                            text = categoryName,
+                                            text = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("es", "CL")).format(amount),
                                             style = MaterialTheme.typography.bodyLarge,
-                                            color = com.example.saveuplite.ui.theme.DarkGrayText,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                            color = com.example.saveuplite.ui.theme.MetricRed
                                         )
                                     }
-                                    Text(
-                                        text = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("es", "CL")).format(amount),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                        color = com.example.saveuplite.ui.theme.MetricRed
-                                    )
+                                    Divider(color = com.example.saveuplite.ui.theme.LightGray)
                                 }
-                                Divider(color = com.example.saveuplite.ui.theme.LightGray)
                             }
                         }
                     }
                 }
+            } else {
+                 Box(
+                    modifier = Modifier
+                        .fillMaxSize(), 
+                    contentAlignment = Alignment.Center
+                ) {
+                     Text(
+                        "No hay datos de gastos para mostrar.",
+                        color = com.example.saveuplite.ui.theme.MediumGrayText
+                     )
+                 }
             }
-        } else {
-             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues), 
-                contentAlignment = Alignment.Center
-            ) {
-                 Text(
-                    "No hay datos de gastos para mostrar.",
-                    color = com.example.saveuplite.ui.theme.MediumGrayText
-                 )
-             }
+            
+            // Barra de navegación flotante
+            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                SoftUiBottomNav(navController = navController)
+            }
         }
     }
 }

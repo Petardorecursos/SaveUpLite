@@ -121,7 +121,7 @@ fun DetalleMetaScreen(
                 }
 
                 if (meta.montoObjetivo != null && meta.montoObjetivo > 0) {
-                    val progress = (meta.montoAhorrado / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
+                    val progress = (meta.montoActual / meta.montoObjetivo).toFloat().coerceIn(0f, 1f)
                     Box(contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
                             progress = { 1f },
@@ -150,7 +150,7 @@ fun DetalleMetaScreen(
                     
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = formatToCLP(meta.montoAhorrado),
+                            text = formatToCLP(meta.montoActual),
                             style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
                             color = DarkGrayText
                         )
@@ -163,7 +163,7 @@ fun DetalleMetaScreen(
                 } else {
                     Spacer(modifier = Modifier.height(32.dp))
                     Text(
-                        text = formatToCLP(meta.montoAhorrado),
+                        text = formatToCLP(meta.montoActual),
                         style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
                         color = LavenderBlue
                     )

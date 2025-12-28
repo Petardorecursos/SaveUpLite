@@ -16,5 +16,7 @@ data class MovimientoRegistroDTO(
     // Opcionales, para futuras implementaciones
     val deudaId: Long? = null,
     val metaId: Long? = null,
-    val categoriaId: Long? = null
+    val categoriaId: Long? = null,
+    
+    val aplicarPresupuesto: Boolean = false
 )

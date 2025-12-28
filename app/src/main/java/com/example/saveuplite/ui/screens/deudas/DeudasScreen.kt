@@ -84,12 +84,13 @@ fun DeudasScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SoftWhite)
             )
         },
-        bottomBar = { SoftUiBottomNav(navController = navController) },
+        // bottomBar removed
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate(Routes.ADD_DEBT) },
                 containerColor = LavenderBlue,
-                contentColor = Color.White
+                contentColor = Color.White,
+                modifier = Modifier.padding(bottom = 80.dp) // Lift FAB above navbar
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Añadir Deuda")
             }
@@ -99,7 +100,6 @@ fun DeudasScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
         ) {
             val totalDeuda = deudaState.deudas.sumOf { it.montoRestante }
 
@@ -113,7 +113,7 @@ fun DeudasScreen(
                 )
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp, start = 16.dp, end = 16.dp), // Increased bottom padding
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
@@ -142,6 +142,11 @@ fun DeudasScreen(
                         }
                     }
                 }
+            }
+            
+            // Barra de navegación flotante
+            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                SoftUiBottomNav(navController = navController)
             }
         }
     }

@@ -264,6 +264,12 @@ public class Movimiento {
     @JoinColumn(name = "CATEGORIA_ID")
     private Categoria categoria;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "META_ID")
+    private MetaAhorro metaAhorro;
+
+
+
     @PrePersist
     protected void onCreate() {
         if (this.fecha == null) {
@@ -735,4 +741,107 @@ public class DataLoader implements CommandLineRunner {
             System.out.println("La tabla de categorías ya tiene datos. No se requiere población inicial.");
         }
     }
+}
+
+Clases de Configuración de Presupuesto:
+
+Entidades:
+package com.example.saveup.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
+@Entity
+@Table(name = "CONFIGURACION_PRESUPUESTO")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ConfiguracionPresupuesto {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne
+    @JoinColumn(name = "USUARIO_ID", nullable = false)
+    private Usuario usuario;
+
+    @Column(name = "PORCENTAJE_NECESIDADES")
+    private Double porcentajeNecesidades;
+
+    @Column(name = "PORCENTAJE_DESEOS")
+    private Double porcentajeDeseos;
+
+    @Column(name = "PORCENTAJE_AHORRO")
+    private Double porcentajeAhorro;
+
+    @Column(name = "ACTIVO")
+    private Boolean activo;
+}
+
+package com.example.saveup.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
+@Entity
+@Table(name = "ASIGNACION_META_PRESUPUESTO")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class AsignacionMetaPresupuesto {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "CONFIGURACION_ID", nullable = false)
+    private ConfiguracionPresupuesto configuracion;
+
+    @ManyToOne
+    @JoinColumn(name = "META_ID", nullable = false)
+    private MetaAhorro meta;
+
+    @Column(name = "PORCENTAJE_ASIGNACION")
+    private Double porcentajeAsignacion;
+}
+
+Repositorios:
+package com.example.saveup.repository;
+
+import com.example.saveup.model.ConfiguracionPresupuesto;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+
+public interface ConfiguracionPresupuestoRepository extends JpaRepository<ConfiguracionPresupuesto, Long> {
+    Optional<ConfiguracionPresupuesto> findByUsuarioRut(String rut);
+}
+
+package com.example.saveup.repository;
+
+import com.example.saveup.model.AsignacionMetaPresupuesto;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+public interface AsignacionMetaPresupuestoRepository extends JpaRepository<AsignacionMetaPresupuesto, Long> {
+    List<AsignacionMetaPresupuesto> findByConfiguracionId(Long configuracionId);
+}
+
+Controller:
+package com.example.saveup.controller;
+
+import com.example.saveup.dto.ConfiguracionPresupuestoRequestDTO;
+import com.example.saveup.model.ConfiguracionPresupuesto;
+import com.example.saveup.repository.ConfiguracionPresupuestoRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/presupuestos")
+public class ConfiguracionPresupuestoController {
+    // Ver implementación completa en codebase para lógica de guardado/borrado de asignaciones
 }

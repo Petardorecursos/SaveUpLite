@@ -35,6 +35,6 @@ Permitir a los usuarios crear metas de ahorro personalizadas, transferir dinero 
 
 *   **Ahorros vs. Categorías**: Los ahorros no utilizan el sistema de `Categoria`, sino los `TipoMovimiento` `ABONO_META` y `RETIRO_META`.
 *   **Integridad del Saldo**: Se mantiene la ecuación `Saldo Total = SUM(todos los movimientos)`.
-*   **Cálculos en Tiempo Real**: El `montoAhorrado` se calcula siempre bajo demanda.
+*   **Persistencia de Saldo**: El `montoActual` se persiste en la BD para optimizar rendimiento y consistencia con Smart Split.
 *   **ViewModel Compartido**: Se utiliza una única instancia de `MetaAhorroViewModel` para todas las pantallas relacionadas, asegurando la consistencia de los datos en la UI.
 *   **Callbacks de Éxito (`onSuccess`)**: Se usan para manejar operaciones asíncronas, garantizando que la UI solo se actualice y navegue después de que las operaciones del backend y la recarga de datos hayan finalizado.

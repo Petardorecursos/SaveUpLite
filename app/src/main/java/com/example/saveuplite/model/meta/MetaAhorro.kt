@@ -10,5 +10,5 @@ data class MetaAhorro(
     val nombre: String,
     val montoObjetivo: Double?,
     val fechaLimite: Date?,
-    val montoAhorrado: Double
+    val montoActual: Double
 )

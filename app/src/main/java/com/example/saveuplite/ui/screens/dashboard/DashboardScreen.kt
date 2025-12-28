@@ -137,56 +137,67 @@ fun DashboardScreen(
     ) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
-            topBar = { TopBar(scope, drawerState, usuarioState.currentUser?.nombre) },
-            bottomBar = { SoftUiBottomNav(navController = navController) }
+            topBar = { TopBar(scope, drawerState, usuarioState.currentUser?.nombre) }
+            // bottomBar removed to allow floating effect
         ) { padding ->
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (dashboardState.isLoading && dashboardState.historialMovimientos.isEmpty()) {
-                    CircularProgressIndicator(modifier = Modifier.padding(top = 32.dp))
-                } else {
-                    Spacer(Modifier.height(16.dp))
-                    BalanceCard(dashboardState.saldoActual)
-                    Spacer(Modifier.height(24.dp))
-                    ActionButtons(
-                        onIngresoClick = { tipoMovimientoDialog = TipoMovimiento.INGRESO_GENERAL; showAddTransactionDialog = true },
-                        onGastoClick = { tipoMovimientoDialog = TipoMovimiento.GASTO_GENERAL; showAddTransactionDialog = true }
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    Spacer(Modifier.height(16.dp))
-                    
-                    FinancialHealthWidget(
-                        ingresos = dashboardState.totalIngresos,
-                        gastos = dashboardState.totalGastos,
-                        selectedDate = dashboardState.selectedDate,
-                        onDateChange = { newDate -> dashboardViewModel.cambiarFechaFiltro(newDate) }
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    TransactionHistory(
-                        historial = dashboardState.historialMovimientos,
-                        onNavigateToHistory = { navController.navigate(Routes.TRANSACTION_HISTORY) }
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    SavingsSummaryWidget(
-                         totalAhorrado = metaAhorroState.totalAhorrado,
-                         goalCount = metaAhorroState.metas.size,
-                         onClick = { navController.navigate(Routes.GOALS) }
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    
-                    val totalDeuda = deudaState.deudas.sumOf { it.montoRestante }
-                    DebtSummaryWidget(
-                        totalDeuda = totalDeuda,
-                        debtCount = deudaState.deudas.count { it.montoRestante > 0 },
-                        onClick = { navController.navigate(Routes.DEBTS) }
-                    )
-                    Spacer(Modifier.height(24.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (dashboardState.isLoading && dashboardState.historialMovimientos.isEmpty()) {
+                        CircularProgressIndicator(modifier = Modifier.padding(top = 32.dp))
+                    } else {
+                        Spacer(Modifier.height(16.dp))
+                        BalanceCard(dashboardState.saldoActual)
+                        Spacer(Modifier.height(24.dp))
+                        ActionButtons(
+                            onIngresoClick = { tipoMovimientoDialog = TipoMovimiento.INGRESO_GENERAL; showAddTransactionDialog = true },
+                            onGastoClick = { tipoMovimientoDialog = TipoMovimiento.GASTO_GENERAL; showAddTransactionDialog = true }
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(16.dp))
+                        
+                        FinancialHealthWidget(
+                            ingresos = dashboardState.totalIngresos,
+                            gastos = dashboardState.totalGastos,
+                            selectedDate = dashboardState.selectedDate,
+                            onDateChange = { newDate -> dashboardViewModel.cambiarFechaFiltro(newDate) }
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        TransactionHistory(
+                            historial = dashboardState.historialMovimientos,
+                            onNavigateToHistory = { navController.navigate(Routes.TRANSACTION_HISTORY) }
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        SavingsSummaryWidget(
+                             totalAhorrado = metaAhorroState.totalAhorrado,
+                             goalCount = metaAhorroState.metas.size,
+                             onClick = { navController.navigate(Routes.GOALS) }
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        
+                        val totalDeuda = deudaState.deudas.sumOf { it.montoRestante }
+                        DebtSummaryWidget(
+                            totalDeuda = totalDeuda,
+                            debtCount = deudaState.deudas.count { it.montoRestante > 0 },
+                            onClick = { navController.navigate(Routes.DEBTS) }
+                        )
+                        // Espacio extra para que el contenido no quede oculto por la barra flotante
+                        Spacer(Modifier.height(100.dp))
+                    }
+                }
+                
+                // Barra de navegación flotante
+                Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                    SoftUiBottomNav(navController = navController)
                 }
             }
         }
@@ -197,10 +208,11 @@ fun DashboardScreen(
         AddTransactionDialog(
             tipo = tipoMovimientoDialog,
             categorias = dashboardState.categorias, // Pasar categorías
+            isBudgetConfigured = dashboardState.isBudgetConfigured, 
             onDismiss = { showAddTransactionDialog = false },
-            onConfirm = { amount, desc, catId ->
+            onConfirm = { amount, desc, catId, applyBudget ->
                 usuarioState.currentUser?.rut?.let { rut -> 
-                    dashboardViewModel.registrarMovimiento(rut, amount, desc, tipoMovimientoDialog, catId) 
+                    dashboardViewModel.registrarMovimiento(rut, amount, desc, tipoMovimientoDialog, catId, applyBudget) 
                 }
                 showAddTransactionDialog = false
             }
@@ -255,6 +267,7 @@ private fun DrawerContent(navController: NavHostController, usuarioViewModel: Us
             Text(text = usuarioState.currentUser?.email ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(32.dp))
             NavigationDrawerItem(icon = { Icon(Icons.Default.Calculate, null) }, label = { Text("Conversor de Moneda") }, selected = false, onClick = { navController.navigate(Routes.CONVERTER); onCloseDrawer() }, shape = RoundedCornerShape(12.dp))
+            NavigationDrawerItem(icon = { Icon(Icons.Default.PieChart, null) }, label = { Text("Planificación Financiera") }, selected = false, onClick = { navController.navigate(Routes.PLANNING); onCloseDrawer() }, shape = RoundedCornerShape(12.dp))
             NavigationDrawerItem(icon = { Icon(Icons.Default.Info, null) }, label = { Text("Funciones Legacy") }, selected = false, onClick = { navController.navigate(Routes.LEGACY_HOME); onCloseDrawer() }, shape = RoundedCornerShape(12.dp))
             Spacer(Modifier.weight(1f))
             Button(
@@ -424,12 +437,14 @@ fun TransactionItem(item: MovimientoResponseDTO) {
 fun AddTransactionDialog(
     tipo: TipoMovimiento, 
     categorias: List<CategoriaDTO>,
+    isBudgetConfigured: Boolean,
     onDismiss: () -> Unit, 
-    onConfirm: (Double, String, Long?) -> Unit
+    onConfirm: (Double, String, Long?, Boolean) -> Unit
 ) {
     var monto by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<CategoriaDTO?>(null) }
+    var aplicarPresupuesto by remember { mutableStateOf(false) }
     
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -460,6 +475,21 @@ fun AddTransactionDialog(
                     selectedCategory = selectedCategory,
                     onCategorySelected = { selectedCategory = it }
                 )
+                
+                if (tipo == TipoMovimiento.INGRESO_GENERAL && isBudgetConfigured) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Aplicar Presupuesto (Set & Forget)", style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = aplicarPresupuesto,
+                            onCheckedChange = { aplicarPresupuesto = it }
+                        )
+                    }
+                }
             }
         },
         confirmButton = { 
@@ -468,7 +498,8 @@ fun AddTransactionDialog(
                     onConfirm(
                         monto.toDoubleOrNull() ?: 0.0, 
                         descripcion,
-                        selectedCategory?.id
+                        selectedCategory?.id,
+                        aplicarPresupuesto
                     ) 
                 }, 
                 shape = RoundedCornerShape(12.dp)

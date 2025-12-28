@@ -22,7 +22,8 @@ data class DashboardUiState(
     val categorias: List<CategoriaDTO> = emptyList(),
     val totalIngresos: Double = 0.0,
     val totalGastos: Double = 0.0,
-    val selectedDate: java.time.LocalDate = java.time.LocalDate.now() // Nuevo campo: Fecha seleccionada para el filtro
+    val selectedDate: java.time.LocalDate = java.time.LocalDate.now(), // Nuevo campo: Fecha seleccionada para el filtro
+    val isBudgetConfigured: Boolean = false // Nuevo campo: Si el usuario tiene presupuesto activo
 )
 
 class DashboardViewModel : ViewModel() {
@@ -63,6 +64,9 @@ class DashboardViewModel : ViewModel() {
                             historialMovimientos = allMovimientos.take(10), // Para el historial mostramos solo los últimos 10 reales
                         )
                     }
+                    
+                    // Verificar presupuesto en segundo plano
+                    verificarPresupuesto(rut)
                 } else {
                     val errorMsg = "Error: ${saldoResponse.code()} / ${movimientosResponse.code()}"
                     _uiState.update { it.copy(isLoading = false, errorMessage = errorMsg) }
@@ -121,7 +125,7 @@ class DashboardViewModel : ViewModel() {
     /**
      * Registra un nuevo movimiento (ingreso o gasto) a través de la API.
      */
-    fun registrarMovimiento(rut: String, monto: Double, descripcion: String, tipo: TipoMovimiento, categoriaId: Long? = null) {
+    fun registrarMovimiento(rut: String, monto: Double, descripcion: String, tipo: TipoMovimiento, categoriaId: Long? = null, aplicarPresupuesto: Boolean = false) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
@@ -132,7 +136,8 @@ class DashboardViewModel : ViewModel() {
                 descripcion = descripcion,
                 tipoMovimiento = tipo,
                 usuarioRut = rut,
-                categoriaId = categoriaId
+                categoriaId = categoriaId,
+                aplicarPresupuesto = aplicarPresupuesto
             )
 
             try {
@@ -150,5 +155,22 @@ class DashboardViewModel : ViewModel() {
 
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    private fun verificarPresupuesto(rut: String) {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.apiService.obtenerConfiguracionPresupuesto(rut)
+                if (response.isSuccessful && response.body() != null) {
+                    val config = response.body()!!
+                    _uiState.update { it.copy(isBudgetConfigured = config.activo) }
+                } else {
+                    _uiState.update { it.copy(isBudgetConfigured = false) }
+                }
+            } catch (e: Exception) {
+                // Silencioso, no bloquea el dashboard
+                _uiState.update { it.copy(isBudgetConfigured = false) }
+            }
+        }
     }
 }

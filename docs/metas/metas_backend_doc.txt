@@ -44,6 +44,9 @@ public class MetaAhorro {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "USUARIO_ID", nullable = false)
     private Usuario usuario;
+
+    @Column(name = "MONTO_ACTUAL")
+    private Double montoActual; // Persistido
 }
 ```
 
@@ -73,7 +76,7 @@ public enum TipoMovimiento {
 ### 2. DTOs (Data Transfer Objects)
 
 *   **`MetaAhorroCreacionDTO.java`**: Para crear o editar una meta.
-*   **`MetaAhorroResponseDTO.java`**: Para enviar el estado de una meta (incluyendo el `montoAhorrado` calculado).
+*   **`MetaAhorroResponseDTO.java`**: Para enviar el estado de una meta (incluyendo el `montoActual` persistido).
 *   **`AbonoRetiroDTO.java`**: Para manejar los abonos y retiros.
 
 ---
@@ -95,9 +98,6 @@ import java.util.List;
 public interface MetaAhorroRepository extends JpaRepository<MetaAhorro, Long> {
 
     List<MetaAhorro> findByUsuarioRut(String rut);
-
-    @Query("SELECT COALESCE(SUM(m.monto), 0.0) FROM Movimiento m WHERE m.metaAhorro.id = :metaId")
-    Double findTotalAhorradoByMetaId(@Param("metaId") Long metaId);
 }
 ```
 
@@ -111,7 +111,7 @@ Se modifica `registrarUsuario` para que, tras guardar un nuevo usuario, cree aut
 #### `MetaAhorroService.java`
 Contiene la lógica de negocio principal para:
 *   Crear, editar y obtener metas.
-*   Calcular el `montoAhorrado` en tiempo real.
+*   Gestionar el `montoActual` persistido (actualizándolo en abonos/retiros).
 *   Realizar abonos (creando movimientos con monto negativo).
 *   Realizar retiros (creando movimientos con monto positivo).
 *   Eliminar metas, asegurando la devolución de los fondos al saldo principal.

@@ -93,4 +93,14 @@ interface ApiService {
 
     @DELETE("api/metas/{metaId}")
     suspend fun eliminarMeta(@Path("metaId") metaId: Long): Response<Void>
+
+    // --- Endpoints de Planificación (Presupuesto) ---
+    @GET("api/presupuestos/usuario/{rut}")
+    suspend fun obtenerConfiguracionPresupuesto(@Path("rut") rut: String): Response<com.example.saveuplite.model.ConfiguracionPresupuesto>
+
+    @POST("api/presupuestos/usuario/{rut}")
+    suspend fun guardarConfiguracionPresupuesto(
+        @Path("rut") rut: String,
+        @Body config: com.example.saveuplite.model.ConfiguracionPresupuestoDTO
+    ): Response<com.example.saveuplite.model.ConfiguracionPresupuesto>
 }

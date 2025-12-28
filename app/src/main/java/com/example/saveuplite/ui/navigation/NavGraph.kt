@@ -59,6 +59,7 @@ object Routes {
     const val LOCATION = "location"
     const val LIST = "list"
     const val NOTIFICATION = "notification"
+    const val PLANNING = "planning" // Nueva ruta
 }
 
 @OptIn(androidx.compose.animation.ExperimentalAnimationApi::class)
@@ -113,6 +114,11 @@ fun AppNavHost(navController: NavHostController) {
             AnalysisScreen(navController, analysisViewModel, rut) 
         }
         composable(Routes.CONVERTER) { ConverterScreen(navController = navController) }
+        
+        composable(Routes.PLANNING) {
+            val planningViewModel: com.example.saveuplite.viewmodel.PlanificacionViewModel = viewModel()
+            com.example.saveuplite.ui.screens.planificacion.PlanificacionScreen(navController, usuarioViewModel, planningViewModel)
+        }
 
         // --- Rutas de funciones adicionales (Legacy) ---
         composable(Routes.LEGACY_HOME) { HomeScreen(navController, usuarioViewModel) }

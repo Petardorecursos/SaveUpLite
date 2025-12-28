@@ -12,10 +12,10 @@ object RetrofitClient {
     // private const val BASE_URL = "http://10.0.2.2:8080/"
 
     // 2. Para testear en un DISPOSITIVO FÍSICO (asegúrate de que tu PC y el móvil estén en la misma red WiFi):
-    //private const val BASE_URL = "http://192.168.18.8:8080/"
+    private const val BASE_URL = "http://192.168.18.8:8080/"
 
     // 3. Para producción (backend en Render):
-    private const val BASE_URL = "https://lite-backend-1wn9.onrender.com/"
+    // private const val BASE_URL = "https://lite-backend-1wn9.onrender.com/"
 
     // --- Configuración de Gson para el formato de fecha estándar ---
     private val gson = GsonBuilder()

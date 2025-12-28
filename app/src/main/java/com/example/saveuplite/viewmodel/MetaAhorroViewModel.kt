@@ -32,7 +32,7 @@ class MetaAhorroViewModel : ViewModel() {
                 val response = RetrofitClient.apiService.obtenerMetas(rut)
                 if (response.isSuccessful && response.body() != null) {
                     val metas = response.body()!!
-                    val total = metas.sumOf { it.montoAhorrado }
+                    val total = metas.sumOf { it.montoActual }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
