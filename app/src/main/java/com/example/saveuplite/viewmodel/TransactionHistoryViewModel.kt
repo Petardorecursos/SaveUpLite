@@ -126,4 +126,83 @@ class TransactionHistoryViewModel : ViewModel() {
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
+
+    // --- Lógica de Descarga ---
+    private val _isDownloading = MutableStateFlow(false)
+    val isDownloading = _isDownloading.asStateFlow()
+
+    fun downloadReport(
+        androidContext: android.content.Context, 
+        rut: String, 
+        isMonthly: Boolean
+    ) {
+        if (_isDownloading.value) return
+
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            _isDownloading.value = true
+            try {
+                val alcance = if (isMonthly) "MENSUAL" else "COMPLETO"
+                val date = _selectedDate.value ?: java.time.LocalDate.now()
+                val mes = if (isMonthly) date.monthValue else null
+                val anio = if (isMonthly) date.year else null
+
+                val response = RetrofitClient.apiService.descargarReporte(rut, alcance, "CSV", mes, anio)
+
+                if (response.isSuccessful && response.body() != null) {
+                    val filename = "reporte_saveup_${if(isMonthly) "${date.monthValue}_${date.year}" else "completo"}.csv"
+                    saveFileToDownloads(androidContext, response.body()!!, filename)
+                    
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        android.widget.Toast.makeText(androidContext, "Reporte descargado correctamente", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        _uiState.update { it.copy(errorMessage = "Error al descargar reporte") }
+                     }
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _uiState.update { it.copy(errorMessage = "Error: ${e.message}") }
+                }
+            } finally {
+                _isDownloading.value = false
+            }
+        }
+    }
+
+    private fun saveFileToDownloads(context: android.content.Context, body: okhttp3.ResponseBody, filename: String) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                
+                uri?.let {
+                    resolver.openOutputStream(it)?.use { outputStream ->
+                        body.byteStream().use { inputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                }
+            } else {
+                // Legacy (api < 29) - Not strictly needed if app targets 29+, but simple fallback
+                val target = java.io.File(
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                    filename
+                )
+                java.io.FileOutputStream(target).use { outputStream ->
+                    body.byteStream().use { inputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+             throw e
+        }
+    }
 }

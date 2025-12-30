@@ -24,6 +24,7 @@ import com.example.saveuplite.viewmodel.UsuarioViewModel
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Share
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -89,37 +90,91 @@ fun TransactionHistoryScreen(
                 
                 // Selector de Fecha / Filtro
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    if (selectedDate == null) {
-                        Button(
-                            onClick = { 
-                                usuarioState.currentUser?.rut?.let { 
-                                    historyViewModel.setSelectedDate(java.time.LocalDate.now(), it) 
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Filtrar por Mes", color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        }
-                    } else {
-                        Column {
-                            com.example.saveuplite.ui.components.MonthYearSelector(
-                                currentDate = selectedDate!!,
-                                onDateChange = { newDate ->
-                                    usuarioState.currentUser?.rut?.let { historyViewModel.setSelectedDate(newDate, it) }
+                    Column {
+                         if (selectedDate == null) {
+                            Button(
+                                onClick = { 
+                                    usuarioState.currentUser?.rut?.let { 
+                                        historyViewModel.setSelectedDate(java.time.LocalDate.now(), it) 
+                                    }
                                 },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            TextButton(
-                                onClick = { usuarioState.currentUser?.rut?.let { historyViewModel.setSelectedDate(null, it) } },
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                             ) {
-                                Text("Ver todo el historial")
+                                Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Filtrar por Mes", color = MaterialTheme.colorScheme.onSecondaryContainer)
                             }
+                        } else {
+                            Column {
+                                com.example.saveuplite.ui.components.MonthYearSelector(
+                                    currentDate = selectedDate!!,
+                                    onDateChange = { newDate ->
+                                        usuarioState.currentUser?.rut?.let { historyViewModel.setSelectedDate(newDate, it) }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                TextButton(
+                                    onClick = { usuarioState.currentUser?.rut?.let { historyViewModel.setSelectedDate(null, it) } },
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                ) {
+                                    Text("Ver todo el historial")
+                                }
+                            }
+                        }
+                        
+                        // Botón de Exportar (Nuevo)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val isDownloading by historyViewModel.isDownloading.collectAsState()
+                        var showDownloadDialog by remember { mutableStateOf(false) }
+
+                        OutlinedButton(
+                            onClick = { showDownloadDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isDownloading
+                        ) {
+                            if (isDownloading) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Descargando...")
+                            } else {
+                                Icon(Icons.Filled.Share, contentDescription = null) // Using Share as generic export icon
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Exportar Historial")
+                            }
+                        }
+
+                        if (showDownloadDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showDownloadDialog = false },
+                                title = { Text("Exportar Reporte") },
+                                text = { Text("Seleccione el alcance del reporte en formato CSV (Excel).") },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            showDownloadDialog = false
+                                            usuarioState.currentUser?.rut?.let { 
+                                                historyViewModel.downloadReport(context, it, isMonthly = false)
+                                            }
+                                        }
+                                    ) { Text("Todo el Historial") }
+                                },
+                                dismissButton = {
+                                    if (selectedDate != null) {
+                                         TextButton(
+                                            onClick = {
+                                                showDownloadDialog = false
+                                                usuarioState.currentUser?.rut?.let { 
+                                                    historyViewModel.downloadReport(context, it, isMonthly = true)
+                                                }
+                                            }
+                                        ) { Text("Mes Actual") }
+                                    }
+                                    TextButton(onClick = { showDownloadDialog = false }) { Text("Cancelar") }
+                                }
+                            )
                         }
                     }
                 }

@@ -8,6 +8,7 @@ import com.example.saveuplite.model.dto.*
 import com.example.saveuplite.model.meta.AbonoRetiro
 import com.example.saveuplite.model.meta.MetaAhorro
 import com.example.saveuplite.model.meta.MetaAhorroCreacion
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -110,4 +111,15 @@ interface ApiService {
         @Query("month") month: Int,
         @Query("year") year: Int
     ): Response<EjecucionPresupuestoDTO>
+
+    // --- Endpoints de Reportes ---
+    @GET("api/reportes/movimientos/exportar")
+    @Streaming
+    suspend fun descargarReporte(
+        @Query("rut") rut: String,
+        @Query("alcance") alcance: String, // COMPLETO, MENSUAL
+        @Query("formato") formato: String, // CSV, PDF
+        @Query("mes") mes: Int? = null,
+        @Query("anio") anio: Int? = null
+    ): Response<ResponseBody>
 }
