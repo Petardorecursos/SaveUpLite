@@ -119,3 +119,34 @@ Actualmente, el sistema "Set & Forget" tiene un impacto directo en el **Ahorro**
     *   Notificar al usuario cuando esté cerca de exceder su asignación para "Deseos", fomentando el control de gastos innecesarios.
 
 Esta implementación cerraría el ciclo del presupuesto 50/30/20, pasando de una calculadora pasiva a una herramienta de control activo.
+
+---
+
+## 5. Implementación: Seguimiento en Tiempo Real (Necesidades y Deseos)
+
+### Backend (Java/Spring Boot)
+*   **Modelo de Datos**:
+    *   **Nuevo Enum `TipoPresupuesto`**: Define los tipos de presupuesto: `NECESIDAD`, `DESEO`, `AHORRO`, `OTROS`.
+    *   **Actualización `Categoria`**: Se añadió la columna `tipoPresupuesto`.
+    *   **`DataLoader`**: Actualizado para asignar automáticamente el tipo de presupuesto correcto a las categorías predeterminadas durante la inicialización (ej: Comida -> NECESIDAD, Ocio -> DESEO).
+*   **Lógica de Negocio y API**:
+    *   **Nuevo DTO `EjecucionPresupuestoDTO`**: Estructura para transportar los datos de ejecución presupuestaria (presupuesto vs gasto real).
+    *   **Actualización `MovimientoRepository`**: Nuevo método `findByUsuarioRutAndFechaBetween` para consultas eficientes por rango de fechas.
+    *   **Nuevo Endpoint**: `GET /api/presupuestos/ejecucion/{rut}` en `ConfiguracionPresupuestoController`. Este endpoint calcula dinámicamente:
+        *   Ingresos totales del mes seleccionado.
+        *   Presupuesto asignado para Necesidades y Deseos (basado en los % configurados por el usuario).
+        *   Gasto Real actual agrupado por el `TipoPresupuesto` de las categorías de los gastos.
+
+### Frontend (Kotlin/Compose)
+*   **Integración**:
+    *   Actualización de `ApiService` y modelos (`CategoriaDTO`, `TipoPresupuesto`) para soportar los nuevos campos y endpoints.
+    *   **`DashboardViewModel`**: Ahora carga los datos de ejecución presupuestaria (`cargarEjecucionPresupuesto`) al iniciar y al cambiar el filtro de fecha.
+*   **Interfaz de Usuario (Financial Health Widget)**:
+    *   **Refactorización**: El widget `FinancialHealthWidget` en `DashboardScreen` ahora es expandible.
+    *   **Visualización de Presupuesto**: Al expandir el widget, se muestra una nueva sección "Ejecución Presupuestaria".
+        *   Incluye barras de progreso visuales para **Necesidades** y **Deseos**.
+        *   **Feedback Detallado**: Las barras ahora muestran el formato `% Gastado ($Gastado / $PresupuestoTotal)`, permitiendo al usuario ver claramente su límite incluso si no ha gastado nada (0%).
+        *   Utiliza colores semánticos (PaleAqua para Necesidades, PaleSalmon para Deseos) para facilitar la lectura rápida.
+    *   **Ayuda Contextual**:
+        *   Se integró un **botón de Información (i)** que despliega el `BudgetExplanationDialog`.
+        *   Este diálogo explica didácticamente cómo funciona el presupuesto dinámico (basado en ingresos) y da ejemplos de la regla 50/30/20, aclarando que es un ejemplo para no confundir a usuarios con configuraciones personalizadas.

@@ -169,6 +169,7 @@ fun DashboardScreen(
                             ingresos = dashboardState.totalIngresos,
                             gastos = dashboardState.totalGastos,
                             selectedDate = dashboardState.selectedDate,
+                            ejecucion = dashboardState.ejecucionPresupuesto,
                             onDateChange = { newDate -> dashboardViewModel.cambiarFechaFiltro(newDate) }
                         )
                         Spacer(Modifier.height(24.dp))
@@ -663,9 +664,11 @@ fun FinancialHealthWidget(
     ingresos: Double,
     gastos: Double,
     selectedDate: java.time.LocalDate,
+    ejecucion: com.example.saveuplite.model.dto.EjecucionPresupuestoDTO? = null,
     onDateChange: (java.time.LocalDate) -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     // Evitar división por cero
     val progress = if (ingresos > 0) (gastos / ingresos).toFloat().coerceIn(0f, 1f) else 0f
@@ -704,8 +707,8 @@ fun FinancialHealthWidget(
                         modifier = Modifier.padding(start = 8.dp).size(24.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CalendarToday,
-                            contentDescription = "Filtrar por fecha",
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.CalendarToday,
+                            contentDescription = "Expandir detalle",
                             tint = LavenderBlue
                         )
                     }
@@ -726,7 +729,49 @@ fun FinancialHealthWidget(
                     onDateChange = onDateChange,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // --- Sección de Ejecución Presupuestaria ---
+                if (ejecucion != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Ejecución Presupuestaria",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = DarkGrayText
+                        )
+                        IconButton(
+                            onClick = { showInfoDialog = true },
+                            modifier = Modifier.size(20.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = "Información",
+                                tint = LavenderBlue
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    BudgetProgressBar(
+                        label = "Necesidades (${ejecucion.porcentajeNecesidadesConfigurado.toInt()}%)",
+                        spent = ejecucion.gastoNecesidades,
+                        budget = ejecucion.presupuestoNecesidades,
+                        color = PaleAqua
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    BudgetProgressBar(
+                        label = "Deseos (${ejecucion.porcentajeDeseosConfigurado.toInt()}%)",
+                        spent = ejecucion.gastoDeseos,
+                        budget = ejecucion.presupuestoDeseos,
+                        color = PaleSalmon
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -758,5 +803,97 @@ fun FinancialHealthWidget(
                 }
             }
         }
+    }
+    
+    if (showInfoDialog) {
+        BudgetExplanationDialog(onDismiss = { showInfoDialog = false })
+    }
+}
+
+@Composable
+fun BudgetExplanationDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Lightbulb, contentDescription = null, tint = LavenderBlue)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("¿Cómo funciona?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Tu presupuesto se adapta automáticamente a tus ingresos mensuales para ayudarte a no gastar de más. Por ejemplo, usando la regla 50/30/20:",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Divider(color = LightGray)
+                Row(verticalAlignment = Alignment.Top) {
+                    Box(modifier = Modifier.padding(top = 4.dp).size(12.dp).background(PaleAqua, CircleShape))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(text = "Necesidades (50%)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                        Text("Gastos indispensables: Casa, Supermercado, Transporte, Cuentas.", style = MaterialTheme.typography.bodySmall, color = MediumGrayText)
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.Top) {
+                    Box(modifier = Modifier.padding(top = 4.dp).size(12.dp).background(PaleSalmon, CircleShape))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(text = "Deseos (30%)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                        Text("Gustos personales: Salidas, Cine, Ropa, Compras extra.", style = MaterialTheme.typography.bodySmall, color = MediumGrayText)
+                    }
+                }
+                
+                Text(
+                    "💡 Mantén tus barras 'verdes' para asegurar tu capacidad de Ahorro (20%).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = DarkTeal,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = LavenderBlue)
+            ) { 
+                Text("¡Entendido!", fontWeight = FontWeight.Bold) 
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+fun BudgetProgressBar(label: String, spent: Double, budget: Double, color: Color) {
+    val progress = if (budget > 0) (spent / budget).toFloat() else 0f // Allow > 1f
+    val displayProgress = progress.coerceIn(0f, 1f)
+    
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = DarkGrayText)
+            Text(
+                "${(progress * 100).toInt()}% (${formatToCLP(spent, false)} / ${formatToCLP(budget, false)})",
+                style = MaterialTheme.typography.bodySmall, 
+                fontWeight = FontWeight.Bold,
+                color = if (progress > 1f) DangerRed else MediumGrayText
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { displayProgress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp)),
+            color = if (progress > 1f) DangerRed else color,
+            trackColor = LightGray
+        )
     }
 }

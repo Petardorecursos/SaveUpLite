@@ -1,4 +1,4 @@
-# Funcionalidad: Gestión y Análisis de Categorías
+ # Funcionalidad: Gestión y Análisis de Categorías
 
 **Versión:** 2.0
 **Fecha:** 2025-05-23
@@ -71,3 +71,23 @@ La gestión de categorías se diseñó como un sistema centralizado en el backen
 *   **`DashboardScreen.kt`**: Muestra el `CategorySelector` en el diálogo de transacción y el `TransactionItem` ahora renderiza el nombre de la categoría.
 *   **`AnalysisScreen.kt`**: Contiene la lógica de `remember(movimientos)` que filtra por `GASTO_GENERAL` y `PAGO_DEUDA` para agregar los datos para el `PieChartComponent`.
 *   **`CategorySelector.kt`**: Componente de UI reutilizable para la selección de categorías.
+
+---
+
+## 4. Clasificación por Tipo de Presupuesto (Necesidad vs Deseo)
+
+**Fecha de Actualización: 2025-12-30**
+
+Para dar soporte a la funcionalidad de "Presupuesto 50/30/20", se introdujo una clasificación semántica adicional a las categorías.
+
+### 4.1. Enum `TipoPresupuesto`
+Se añadió el enum `TipoPresupuesto` con los siguientes valores:
+*   `NECESIDAD`: Gastos esenciales (Comida, Transporte, Cuentas).
+*   `DESEO`: Gastos prescindibles u ocio (Cine, Ropa, Salidas).
+*   `AHORRO`: Reservado para metas de ahorro (aunque el ahorro se maneja principalmente vía `MetaAhorro`).
+*   `OTROS`: Categorías por defecto o sin clasificación específica.
+
+### 4.2. Impacto en la Entidad `Categoria`
+*   Se agregó la columna `TIPO_PRESUPUESTO` en la BD.
+*   El `DataLoader` asigna estos tipos por defecto (ej. "Comida" -> `NECESIDAD`).
+*   Esto permite calcular en tiempo real (en el endpoint `/api/presupuestos/ejecucion`) cuánto del presupuesto asignado a "Necesidades" se ha consumido basándose en las categorías de los movimientos registrados.

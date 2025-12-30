@@ -103,4 +103,11 @@ interface ApiService {
         @Path("rut") rut: String,
         @Body config: com.example.saveuplite.model.ConfiguracionPresupuestoDTO
     ): Response<com.example.saveuplite.model.ConfiguracionPresupuesto>
+
+    @GET("api/presupuestos/ejecucion/{rut}")
+    suspend fun obtenerEjecucionPresupuesto(
+        @Path("rut") rut: String,
+        @Query("month") month: Int,
+        @Query("year") year: Int
+    ): Response<EjecucionPresupuestoDTO>
 }

@@ -23,13 +23,15 @@ data class DashboardUiState(
     val totalIngresos: Double = 0.0,
     val totalGastos: Double = 0.0,
     val selectedDate: java.time.LocalDate = java.time.LocalDate.now(), // Nuevo campo: Fecha seleccionada para el filtro
-    val isBudgetConfigured: Boolean = false // Nuevo campo: Si el usuario tiene presupuesto activo
+    val isBudgetConfigured: Boolean = false, // Nuevo campo: Si el usuario tiene presupuesto activo
+    val ejecucionPresupuesto: com.example.saveuplite.model.dto.EjecucionPresupuestoDTO? = null
 )
 
 class DashboardViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState = _uiState.asStateFlow()
+    private var currentRut: String? = null
 
     // Lista completa de movimientos en memoria para filtrar sin recargar la API cada vez si no es necesario (opcional, pero por ahora recargamos todo para asegurar consistencia)
     private var allMovimientos: List<MovimientoResponseDTO> = emptyList()
@@ -39,6 +41,7 @@ class DashboardViewModel : ViewModel() {
      * Ahora trae un límite mayor (o todos) para permitir filtrado local por fecha.
      */
     fun cargarDatosDashboard(rut: String) {
+        currentRut = rut
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
@@ -55,7 +58,8 @@ class DashboardViewModel : ViewModel() {
                     allMovimientos = movimientosResponse.body()!!
                     
                     // Calculamos los totales basados en la fecha seleccionada actual
-                    recalcularTotalesPorFecha(_uiState.value.selectedDate)
+                    val currentDate = _uiState.value.selectedDate
+                    recalcularTotalesPorFecha(currentDate)
 
                     _uiState.update {
                         it.copy(
@@ -67,6 +71,7 @@ class DashboardViewModel : ViewModel() {
                     
                     // Verificar presupuesto en segundo plano
                     verificarPresupuesto(rut)
+                    cargarEjecucionPresupuesto(rut, currentDate) // Load budget execution
                 } else {
                     val errorMsg = "Error: ${saldoResponse.code()} / ${movimientosResponse.code()}"
                     _uiState.update { it.copy(isLoading = false, errorMessage = errorMsg) }
@@ -86,6 +91,10 @@ class DashboardViewModel : ViewModel() {
     fun cambiarFechaFiltro(nuevaFecha: java.time.LocalDate) {
         _uiState.update { it.copy(selectedDate = nuevaFecha) }
         recalcularTotalesPorFecha(nuevaFecha)
+        
+        currentRut?.let { 
+            cargarEjecucionPresupuesto(it, nuevaFecha)
+        }
     }
 
     private fun recalcularTotalesPorFecha(fecha: java.time.LocalDate) {
@@ -104,6 +113,21 @@ class DashboardViewModel : ViewModel() {
                 totalIngresos = ingresos,
                 totalGastos = gastos
             )
+        }
+    }
+
+    private fun cargarEjecucionPresupuesto(rut: String, date: java.time.LocalDate) {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.apiService.obtenerEjecucionPresupuesto(
+                    rut, date.monthValue, date.year
+                )
+                if (response.isSuccessful && response.body() != null) {
+                    _uiState.update { it.copy(ejecucionPresupuesto = response.body()!!) }
+                }
+            } catch (e: Exception) {
+               // Silent fail
+            }
         }
     }
 
