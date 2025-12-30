@@ -38,3 +38,7 @@ Permitir a los usuarios crear metas de ahorro personalizadas, transferir dinero 
 *   **Persistencia de Saldo**: El `montoActual` se persiste en la BD para optimizar rendimiento y consistencia con Smart Split.
 *   **ViewModel Compartido**: Se utiliza una única instancia de `MetaAhorroViewModel` para todas las pantallas relacionadas, asegurando la consistencia de los datos en la UI.
 *   **Callbacks de Éxito (`onSuccess`)**: Se usan para manejar operaciones asíncronas, garantizando que la UI solo se actualice y navegue después de que las operaciones del backend y la recarga de datos hayan finalizado.
+
+### **FASE 3: Integración con Presupuestos (Set & Forget) - ✔️ COMPLETADA**
+*   **Integración Backend**: `MovimientoService` actualizado para "Smart Split".
+*   **Integración Frontend**: Banner promocional en `MetasScreen` y lógica de verificación de plan en `MetaAhorroViewModel`.

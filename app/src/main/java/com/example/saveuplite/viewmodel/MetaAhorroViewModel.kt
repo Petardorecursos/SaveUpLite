@@ -11,13 +11,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.joinAll
 import java.util.Date
 
 data class MetaAhorroUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val metas: List<MetaAhorro> = emptyList(),
-    val totalAhorrado: Double = 0.0
+    val totalAhorrado: Double = 0.0,
+    val hasBudgetPlan: Boolean = false
 )
 
 class MetaAhorroViewModel : ViewModel() {
@@ -29,20 +31,32 @@ class MetaAhorroViewModel : ViewModel() {
         return viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                val response = RetrofitClient.apiService.obtenerMetas(rut)
-                if (response.isSuccessful && response.body() != null) {
-                    val metas = response.body()!!
-                    val total = metas.sumOf { it.montoActual }
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            metas = metas,
-                            totalAhorrado = total
-                        )
+                // Fetch metas and budget config in parallel-ish
+                val metasCall = launch {
+                    val response = RetrofitClient.apiService.obtenerMetas(rut)
+                    if (response.isSuccessful && response.body() != null) {
+                        val metas = response.body()!!
+                        val total = metas.sumOf { it.montoActual }
+                        _uiState.update {
+                            it.copy(
+                                metas = metas,
+                                totalAhorrado = total
+                            )
+                        }
+                    } else {
+                        _uiState.update { it.copy(errorMessage = "Error al obtener metas: ${response.code()}") }
                     }
-                } else {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = "Error al obtener metas: ${response.code()}") }
                 }
+                
+                val configCall = launch {
+                    val configResp = RetrofitClient.apiService.obtenerConfiguracionPresupuesto(rut)
+                    val hasPlan = configResp.isSuccessful && configResp.body() != null
+                    _uiState.update { it.copy(hasBudgetPlan = hasPlan) }
+                }
+
+                joinAll(metasCall, configCall)
+                _uiState.update { it.copy(isLoading = false) }
+
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Error de red: ${e.message}") }
             }

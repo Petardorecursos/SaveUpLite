@@ -154,3 +154,17 @@ public class MetaAhorroController {
     public ResponseEntity<?> eliminarMeta(@PathVariable Long metaId) { /* ... */ }
 }
 ```
+
+---
+
+### 6. Integración con Presupuestos (Set & Forget)
+
+La funcionalidad de Metas se integra con el módulo de Presupuestos mediante la relación con:
+
+*   **`ConfiguracionPresupuesto`**: Define el % global de ahorro.
+*   **`AsignacionMetaPresupuesto`**: Mapea un porcentaje del ahorro total a una `MetaAhorro` específica (`idMeta`).
+*   **`MovimientoService`**: Al registrar un ingreso con `aplicarPresupuesto=true`:
+    1.  Calcula el monto de ahorro.
+    2.  Recupera las asignaciones activas.
+    3.  Crea un movimiento de `ABONO_META` por cada asignación.
+    4.  Actualiza el `montoActual` de la meta correspondiente de forma transaccional.

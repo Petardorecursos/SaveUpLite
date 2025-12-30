@@ -49,3 +49,18 @@ La arquitectura del frontend se centra en el patrón MVVM (Model-View-ViewModel)
 *   Se implementó una función de ayuda (`fun detailGoal(metaId: Long)`) para construir las rutas de forma segura.
 *   El `composable` para cada pantalla de metas se configuró para recibir la instancia compartida del `MetaAhorroViewModel`.
 *   Se implementó una estrategia de navegación mejorada `navController.navigate(Routes.GOALS) { popUpTo(Routes.GOALS) { inclusive = true } }` para asegurar que, tras una operación, el usuario vuelva a una pantalla de lista siempre actualizada.
+
+---
+
+## 3. Integración con Presupuestos ("Set & Forget")
+
+### 3.1. Banner Promocional Inteligente (`BudgetPlanPromoCard`)
+
+Se ha implementado una integración visual entre el módulo de Metas y el de Planificación Financiera para mejorar la descubribilidad de la función "Set & Forget".
+
+*   **Lógica en ViewModel**: `MetaAhorroViewModel` ahora verifica concurrentemente (usando `coroutines` y `joinAll`) si el usuario posee una `ConfiguracionPresupuesto` activa al cargar la lista de metas.
+*   **Estado UI**: Se añade la propiedad `hasBudgetPlan` al `MetaAhorroUiState`.
+*   **Comportamiento Dinámico**:
+    *   **Usuario Nuevo (Sin Plan)**: Muestra una tarjeta invitando a "Probar el Planificador", educando sobre la automatización de ahorros.
+    *   **Usuario Existente (Con Plan)**: Muestra un acceso directo "Ir a Planificación de presupuestos" para facilitar ajustes rápidos.
+

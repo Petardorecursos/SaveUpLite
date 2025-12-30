@@ -49,13 +49,18 @@ Este documento detalla todas las modificaciones, creaciones y soluciones impleme
 
 ### Pantallas (UI)
 *   **Nueva**: `PlanificacionScreen.kt`:
-    *   Sliders para regla 50/30/20.
-    *   Sección "Distribución de Ahorro": Sliders dinámicos por cada meta del usuario para asignar % del ahorro.
-    *   Simulador en tiempo real.
+    *    **Refactor Visual Soft UI**: Diseño moderno con tarjetas y colores semánticos (PaleAqua, PalePink, PaleTeal).
+    *   **Sliders 50/30/20 & Mapeo de Metas**: Ajuste dinámico de distribución.
+    *   **Sección Colapsable**: La sección de asignación de metas se contrae automáticamente si el ahorro es 0%, mejorando la claridad.
+    *   **Simulador Vivo**: Feedback visual inmediato con tarjetas de colores.
 *   **Modificadas**:
-    *   `DashboardScreen.kt`: Añadido switch "Aplicar Presupuesto" en el diálogo de transacción.
-    *   `MetasScreen.kt`: Actualizado para leer `montoActual` (antes `montoAhorrado`) y mostrar el saldo correcto.
-    *   `DetalleMetaScreen.kt`: Actualizado para leer `montoActual`.
+    *   `DashboardScreen.kt`: Añadido switch "Aplicar Presupuesto".
+    *   `MetasScreen.kt`:
+        *   Lectura de `montoActual`.
+        *   **Banner Promocional Inteligente**: Nueva tarjeta `BudgetPlanPromoCard`. Detecta si el usuario tiene presupuesto activo:
+            *   *Sin Plan*: Invita a probar el planificador.
+            *   *Con Plan*: Botón de acceso directo a la edición del plan.
+    *   `DetalleMetaScreen.kt`: Lectura de `montoActual`.
 
 ### ViewModels
 *   **Nuevo**: `PlanificacionViewModel.kt`: Maneja el estado de la configuración, validaciones (suma 100%) y comunicación con API.
@@ -86,7 +91,31 @@ Este documento detalla todas las modificaciones, creaciones y soluciones impleme
 *   **Causa**: Al eliminar/renombrar `montoAhorrado` a `montoActual`, el compilador perdió la referencia de tipo (Double) y no supo qué sobrecarga de `sumOf` usar.
 *   **Solución**: Actualizar la referencia en el lambda a `it.montoActual`, permitiendo al compilador inferir correctamente el tipo `Double`.
 
-### C. Error "Unresolved Reference" en UI
-*   **Problema**: `PlanificacionScreen` no encontraba las propiedades `needs`, `wants`, etc.
-*   **Causa**: Error humano al editar `PlanificacionViewModel` donde accidentalmente se borraron estas propiedades del `data class PlanificacionUiState`.
-*   **Solución**: Se restauraron las propiedades faltantes en el estado.
+### D. Error "Unresolved Reference: ArrowForward / AutoGraph"
+*   **Problema**: Error de compilación en `MetasScreen` al usar iconos extendidos.
+*   **Causa**: Se intentó utilizar la ruta completa del paquete (`androidx.compose.material.icons.filled...`) dentro del composable `Icon`, lo cual no es la sintaxis standard para acceder a los objetos singleton de iconos en Compose.
+*   **Solución**: Se cambió el acceso a `Icons.Filled.ArrowForward` y `Icons.Filled.AutoGraph`, consistente con los imports.
+
+---
+
+## 4. Análisis de Lógica: El Impacto de "Necesidades" y "Deseos"
+
+Actualmente, el sistema "Set & Forget" tiene un impacto directo en el **Ahorro** (moviendo dinero a Metas). Sin embargo, los porcentajes de **Necesidades** y **Deseos** son meramente informativos en la simulación. Para que tengan un impacto real en la experiencia del usuario, se propone la siguiente evolución:
+
+### Estrategia de Solución Propuesta
+
+1.  **Categorización Semántica**:
+    *   Modificar la entidad `Categoria` para incluir un campo `TipoPresupuesto` (valores: `NECESIDAD`, `DESEO`, `AHORRO/INVERSION`).
+    *   Ejemplo: "Alquiler" -> `NECESIDAD`, "Cine" -> `DESEO`.
+
+2.  **Seguimiento de Presupuesto en Tiempo Real**:
+    *   En lugar de solo *mover* dinero, el sistema debe *monitorear* el gasto.
+    *   **Cálculo**:
+        *   `Presupuesto Necesidades` = Total Ingresos del Mes * % Configurado (ej. 50%).
+        *   `Gasto Real Necesidades` = Suma de movimientos categorizados como `NECESIDAD`.
+    *   **Visualización**: Mostrar barras de progreso en el Dashboard o Análisis: "Has gastado el 80% de tu presupuesto para Necesidades".
+
+3.  **Alertas Inteligentes**:
+    *   Notificar al usuario cuando esté cerca de exceder su asignación para "Deseos", fomentando el control de gastos innecesarios.
+
+Esta implementación cerraría el ciclo del presupuesto 50/30/20, pasando de una calculadora pasiva a una herramienta de control activo.

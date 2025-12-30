@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoGraph
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -94,6 +96,14 @@ fun MetasScreen(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
                 TotalAhorradoCard(totalAhorrado = metaAhorroState.totalAhorrado)
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                BudgetPlanPromoCard(
+                    hasPlan = metaAhorroState.hasBudgetPlan,
+                    onClick = { navController.navigate(Routes.PLANNING) }
+                )
+
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     "Mis Metas", 
@@ -275,4 +285,61 @@ private fun formatToCLP(amount: Double): String {
     val format = NumberFormat.getCurrencyInstance(Locale("es", "CL"))
     format.maximumFractionDigits = 0
     return format.format(amount).replace(",", ".")
+}
+
+@Composable
+fun BudgetPlanPromoCard(hasPlan: Boolean, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, LavenderBlue.copy(alpha = 0.3f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                if (hasPlan) {
+                    Text(
+                        "Ir a Planificación de presupuestos",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = LavenderBlue
+                    )
+                } else {
+                     Text(
+                        "Prueba el Planificador de presupuestos",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = DarkGrayText
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Olvídate de los ingresos manuales y organiza tus ahorros automáticamente.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MediumGrayText
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            if (hasPlan) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowForward,
+                    contentDescription = "Ir",
+                    tint = LavenderBlue
+                )
+            } else {
+                 Icon(
+                    imageVector = Icons.Filled.AutoGraph,
+                    contentDescription = "Planificar",
+                    tint = LavenderBlue
+                )
+            }
+        }
+    }
 }
