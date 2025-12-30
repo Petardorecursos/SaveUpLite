@@ -48,7 +48,7 @@ fun AnalysisScreen(
     // 2. Procesar datos para el gráfico (Total por Categoría)
     val expenseData = remember(filteredMovimientos) {
         filteredMovimientos
-            .filter { it.tipoMovimiento == TipoMovimiento.GASTO_GENERAL || it.tipoMovimiento == TipoMovimiento.PAGO_DEUDA }
+            .filter { it.tipoMovimiento == TipoMovimiento.GASTO_GENERAL || it.tipoMovimiento == TipoMovimiento.PAGO_DEUDA || it.tipoMovimiento == TipoMovimiento.ABONO_META }
             .groupBy { it.categoria?.nombre ?: "Sin Categoría" }
             .mapValues { entry -> 
                 entry.value.sumOf { Math.abs(it.monto) }
@@ -61,7 +61,7 @@ fun AnalysisScreen(
     // 3. Agrupar por Tipo de Presupuesto (Necesidad, Deseo, etc.)
     val groupedByType = remember(filteredMovimientos) {
         filteredMovimientos
-            .filter { it.tipoMovimiento == TipoMovimiento.GASTO_GENERAL || it.tipoMovimiento == TipoMovimiento.PAGO_DEUDA }
+            .filter { it.tipoMovimiento == TipoMovimiento.GASTO_GENERAL || it.tipoMovimiento == TipoMovimiento.PAGO_DEUDA || it.tipoMovimiento == TipoMovimiento.ABONO_META }
             .groupBy { 
                 it.categoria?.tipoPresupuesto ?: com.example.saveuplite.model.enums.TipoPresupuesto.OTROS 
             }
@@ -231,6 +231,7 @@ fun AnalysisScreen(
                                             color = when(tipo) {
                                                 com.example.saveuplite.model.enums.TipoPresupuesto.NECESIDAD -> com.example.saveuplite.ui.theme.DarkTeal
                                                 com.example.saveuplite.model.enums.TipoPresupuesto.DESEO -> com.example.saveuplite.ui.theme.SaturatedSalmon
+                                                com.example.saveuplite.model.enums.TipoPresupuesto.AHORRO -> androidx.compose.ui.graphics.Color(0xFF3F51B5)
                                                 else -> com.example.saveuplite.ui.theme.MediumGrayText
                                             }
                                         )

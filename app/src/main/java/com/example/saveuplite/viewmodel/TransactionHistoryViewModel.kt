@@ -134,7 +134,8 @@ class TransactionHistoryViewModel : ViewModel() {
     fun downloadReport(
         androidContext: android.content.Context, 
         rut: String, 
-        isMonthly: Boolean
+        isMonthly: Boolean,
+        format: String = "CSV" // Default to CSV
     ) {
         if (_isDownloading.value) return
 
@@ -146,10 +147,11 @@ class TransactionHistoryViewModel : ViewModel() {
                 val mes = if (isMonthly) date.monthValue else null
                 val anio = if (isMonthly) date.year else null
 
-                val response = RetrofitClient.apiService.descargarReporte(rut, alcance, "CSV", mes, anio)
+                val response = RetrofitClient.apiService.descargarReporte(rut, alcance, format, mes, anio)
 
                 if (response.isSuccessful && response.body() != null) {
-                    val filename = "reporte_saveup_${if(isMonthly) "${date.monthValue}_${date.year}" else "completo"}.csv"
+                    val extension = if (format.equals("PDF", ignoreCase = true)) ".pdf" else ".csv"
+                    val filename = "reporte_saveup_${if(isMonthly) "${date.monthValue}_${date.year}" else "completo"}$extension"
                     saveFileToDownloads(androidContext, response.body()!!, filename)
                     
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -175,7 +177,8 @@ class TransactionHistoryViewModel : ViewModel() {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, filename)
-                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+                    val mimeType = if (filename.endsWith(".pdf", true)) "application/pdf" else "text/csv"
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
                     put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
                 }
                 val resolver = context.contentResolver

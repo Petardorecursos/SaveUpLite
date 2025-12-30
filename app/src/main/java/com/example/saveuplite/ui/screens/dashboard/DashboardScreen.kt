@@ -475,18 +475,22 @@ fun AddTransactionDialog(
                 // Lógica de Filtrado y Ordenamiento
                 val filteredCategories = remember(categorias, tipo) {
                     if (tipo == com.example.saveuplite.model.enums.TipoMovimiento.INGRESO_GENERAL) {
-                        // Para Ingresos: Solo mostrar Sueldo, Depósito, Otros. Excluir Necesidades/Deseos explícitos.
+                        // Para Ingresos: Solo mostrar Sueldo, Depósito, Otros. Excluir Necesidades/Deseos explícitos y AHORRO.
                         categorias.filter { cat -> 
                              val name = cat.nombre.trim().lowercase()
-                             name == "sueldo" || name == "depósito" || name == "deposito" || name == "otros" || name == "otro" ||
+                             // NO mostrar AHORRO en ingresos manuales
+                             val isAhorro = cat.tipoPresupuesto == com.example.saveuplite.model.enums.TipoPresupuesto.AHORRO
+                             
+                             !isAhorro && (name == "sueldo" || name == "depósito" || name == "deposito" || name == "otros" || name == "otro" ||
                              (cat.tipoPresupuesto != com.example.saveuplite.model.enums.TipoPresupuesto.NECESIDAD && 
-                              cat.tipoPresupuesto != com.example.saveuplite.model.enums.TipoPresupuesto.DESEO)
+                              cat.tipoPresupuesto != com.example.saveuplite.model.enums.TipoPresupuesto.DESEO))
                         }.sortedBy { it.nombre }
                     } else {
-                        // Para Gastos: Excluir Sueldo, Deudas. Ordenar por Necesidad -> Deseo -> Otros
+                        // Para Gastos: Excluir Sueldo, Deudas y AHORRO. Ordenar por Necesidad -> Deseo -> Otros
                         categorias.filter { cat ->
                              val name = cat.nombre.trim().lowercase()
-                             name != "sueldo" && name != "depósito" && name != "deposito" && name != "deudas"
+                             val isAhorro = cat.tipoPresupuesto == com.example.saveuplite.model.enums.TipoPresupuesto.AHORRO
+                             !isAhorro && name != "sueldo" && name != "depósito" && name != "deposito" && name != "deudas"
                         }.sortedWith(compareBy<CategoriaDTO> { 
                             when(it.tipoPresupuesto) {
                                 com.example.saveuplite.model.enums.TipoPresupuesto.NECESIDAD -> 1

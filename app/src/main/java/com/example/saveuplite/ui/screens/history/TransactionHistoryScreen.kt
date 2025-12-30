@@ -147,30 +147,55 @@ fun TransactionHistoryScreen(
                         }
 
                         if (showDownloadDialog) {
+                            var selectedFormat by remember { mutableStateOf("CSV") }
+
                             AlertDialog(
                                 onDismissRequest = { showDownloadDialog = false },
                                 title = { Text("Exportar Reporte") },
-                                text = { Text("Seleccione el alcance del reporte en formato CSV (Excel).") },
+                                text = {
+                                    Column {
+                                        Text("Seleccione el formato y alcance:")
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        
+                                        // Selector de Formato
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            RadioButton(
+                                                selected = selectedFormat == "CSV",
+                                                onClick = { selectedFormat = "CSV" }
+                                            )
+                                            Text("CSV (Excel)")
+                                            Spacer(modifier = Modifier.width(16.dp))
+                                            RadioButton(
+                                                selected = selectedFormat == "PDF",
+                                                onClick = { selectedFormat = "PDF" }
+                                            )
+                                            Text("PDF")
+                                        }
+                                    }
+                                },
                                 confirmButton = {
                                     TextButton(
                                         onClick = {
                                             showDownloadDialog = false
                                             usuarioState.currentUser?.rut?.let { 
-                                                historyViewModel.downloadReport(context, it, isMonthly = false)
+                                                historyViewModel.downloadReport(context, it, isMonthly = false, format = selectedFormat)
                                             }
                                         }
                                     ) { Text("Todo el Historial") }
                                 },
                                 dismissButton = {
-                                    if (selectedDate != null) {
-                                         TextButton(
-                                            onClick = {
-                                                showDownloadDialog = false
-                                                usuarioState.currentUser?.rut?.let { 
-                                                    historyViewModel.downloadReport(context, it, isMonthly = true)
-                                                }
+                                    // Opción Mensual: Siempre visible. Si no hay fecha seleccionada, usa el mes actual por defecto.
+                                    TextButton(
+                                        onClick = {
+                                            showDownloadDialog = false
+                                            usuarioState.currentUser?.rut?.let { 
+                                                historyViewModel.downloadReport(context, it, isMonthly = true, format = selectedFormat)
                                             }
-                                        ) { Text("Mes Actual") }
+                                        }
+                                    ) { 
+                                         // Texto dinámico: Si hay fecha seleccionada muestra ese mes, si no "Mes Actual"
+                                         val label = if (selectedDate != null) "Mes Seleccionado" else "Mes Actual"
+                                         Text(label) 
                                     }
                                     TextButton(onClick = { showDownloadDialog = false }) { Text("Cancelar") }
                                 }

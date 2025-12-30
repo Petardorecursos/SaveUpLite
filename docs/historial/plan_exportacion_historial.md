@@ -44,10 +44,34 @@ Endpoint único que delega en una fábrica o selecciona el generador según un p
 *   **Lógica de Descarga**:
     *   Genérica: Recibe `ResponseBody`, lee el `Content-Type` o usa una extensión por defecto según lo que pidió, y guarda en Downloads.
 
-## Estructura de Tareas
-1.  **Backend Core**: interfaz `ReporteGenerator` y `CsvReporteGenerator`.
-2.  **Backend API**: `ReporteController` con soporte de parámetros.
-3.  **Frontend**: Integración en `ApiService` y UI de descarga.
+## Estado: COMPLETADO (30/12/2025)
 
-## Beneficios Modularidad
-*   Si mañana queremos PDF, solo creamos `PdfReporteGenerator` y lo registramos. El Controller no cambia. El Frontend solo habilita un nuevo botón.
+## Implementación Final
+
+### 1. Backend (`saveup`)
+Se implementó el patrón **Strategy** con éxito.
+
+*   **Interfaz**: `ReporteGenerator` creada.
+*   **Estrategias**:
+    *   `CsvReporteGenerator`: Genera CSV compatible con Excel (BOM UTF-8, separador `;`).
+    *   `PdfReporteGenerator`: Genera PDF estilizado usando **OpenPDF**. Incluye colores condicionales (Verde/Rojo) y tabla estructurada.
+*   **Servicio**: `ReporteService` selecciona la estrategia dinámicamente según el parámetro `formato`.
+*   **Controlador**: `ReporteController` expone el endpoint único y maneja la descarga de archivos (Streaming).
+
+**Mejoras Adicionales de Integridad de Datos:**
+*   **Categoría 'Ahorro'**: Se modificó `DataLoader` para asegurar la existencia de esta categoría (Color Índigo).
+*   **Lógica de Negocio**:
+    *   Los **Abonos Automáticos** (`MovimientoService`) ahora se asignan automáticamente a la categoría 'Ahorro'.
+    *   Los movimientos manuales de **Abono/Retiro de Metas** (`MetaAhorroService`) también reciben esta categoría.
+
+### 2. Frontend (`LITEfront`)
+
+*   **TransactionHistoryScreen**:
+    *   Botón "Exportar" funcional.
+    *   Diálogo con opciones: **Alcance** (Mes Seleccionado/Actual vs. Historial Completo) y **Formato** (CSV vs. PDF).
+    *   Manejo de descarga robusto usando `MediaStore` para guardar en la carpeta de Descargas del usuario.
+*   **DashboardScreen**:
+    *   Se excluyó la categoría 'Ahorro' de los selectores manuales de ingreso/gasto para mantener la consistencia (solo el sistema de metas debe usarla).
+*   **AnalysisScreen**:
+    *   Se incluyeron los movimientos de tipo `ABONO_META` en los gráficos y listas.
+    *   Se asignó un color distintivo (Índigo) para visualizarlos como 'Ahorro'.
