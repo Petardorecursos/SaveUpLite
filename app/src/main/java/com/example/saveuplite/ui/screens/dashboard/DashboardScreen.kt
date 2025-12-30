@@ -471,11 +471,59 @@ fun AddTransactionDialog(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Categoría", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(8.dp))
+                
+                // Lógica de Filtrado y Ordenamiento
+                val filteredCategories = remember(categorias, tipo) {
+                    if (tipo == com.example.saveuplite.model.enums.TipoMovimiento.INGRESO_GENERAL) {
+                        // Para Ingresos: Solo mostrar Sueldo, Depósito, Otros. Excluir Necesidades/Deseos explícitos.
+                        categorias.filter { cat -> 
+                             val name = cat.nombre.trim().lowercase()
+                             name == "sueldo" || name == "depósito" || name == "deposito" || name == "otros" || name == "otro" ||
+                             (cat.tipoPresupuesto != com.example.saveuplite.model.enums.TipoPresupuesto.NECESIDAD && 
+                              cat.tipoPresupuesto != com.example.saveuplite.model.enums.TipoPresupuesto.DESEO)
+                        }.sortedBy { it.nombre }
+                    } else {
+                        // Para Gastos: Excluir Sueldo, Deudas. Ordenar por Necesidad -> Deseo -> Otros
+                        categorias.filter { cat ->
+                             val name = cat.nombre.trim().lowercase()
+                             name != "sueldo" && name != "depósito" && name != "deposito" && name != "deudas"
+                        }.sortedWith(compareBy<CategoriaDTO> { 
+                            when(it.tipoPresupuesto) {
+                                com.example.saveuplite.model.enums.TipoPresupuesto.NECESIDAD -> 1
+                                com.example.saveuplite.model.enums.TipoPresupuesto.DESEO -> 2
+                                else -> 3
+                            }
+                        }.thenBy { it.nombre })
+                    }
+                }
+
                 CategorySelector(
-                    categories = categorias,
+                    categories = filteredCategories,
                     selectedCategory = selectedCategory,
                     onCategorySelected = { selectedCategory = it }
                 )
+                
+                // Simbología (Solo para Gastos)
+                if (tipo != com.example.saveuplite.model.enums.TipoMovimiento.INGRESO_GENERAL) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        // Necesidad
+                        Box(modifier = Modifier.size(6.dp).background(com.example.saveuplite.ui.theme.DarkTeal, androidx.compose.foundation.shape.CircleShape))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Necesidad (50%)", style = MaterialTheme.typography.labelSmall, color = com.example.saveuplite.ui.theme.MediumGrayText)
+                        
+                        Spacer(modifier = Modifier.width(16.dp))
+                        
+                        // Deseo
+                        Box(modifier = Modifier.size(6.dp).background(com.example.saveuplite.ui.theme.SaturatedSalmon, androidx.compose.foundation.shape.CircleShape))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Deseo (30%)", style = MaterialTheme.typography.labelSmall, color = com.example.saveuplite.ui.theme.MediumGrayText)
+                    }
+                }
                 
                 if (tipo == TipoMovimiento.INGRESO_GENERAL && isBudgetConfigured) {
                     Spacer(modifier = Modifier.height(16.dp))

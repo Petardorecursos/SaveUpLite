@@ -61,7 +61,8 @@ La gestión de categorías se diseñó como un sistema centralizado en el backen
 *   **`CategoriaRepository.java`**: Incluye `findByNombre(String nombre)` para búsquedas específicas.
 *   **`Movimiento.java` (Entidad)**: Actualizada con la relación `@ManyToOne` a `Categoria`.
 *   **`DeudaService.java`**: Lógica clave en `registrarPago` para encontrar y asignar la categoría "Deudas".
-*   **`MovimientoService.java`**: Lógica clave en `convertirAEntidadResponseDTO` para poblar el `CategoriaDTO` en la respuesta.
+*   **`MovimientoService.java`**: Lógica clave en `convertirAEntidadResponseDTO` para poblar el `CategoriaDTO` en la respuesta. Ahora incluye explícitamente el mapeo del campo `tipoPresupuesto`.
+*   **`CategoriaService.java`**: Actualizado para asegurar que `tipoPresupuesto` se incluya al listar las categorías.
 *   **DTOs (`MovimientoResponseDTO`, `MovimientoRegistroDTO`)**: Modificados para enviar y recibir el ID de la categoría y para incluir el objeto categoría en las respuestas.
 
 ### Frontend (`LITEfront`)
@@ -91,3 +92,27 @@ Se añadió el enum `TipoPresupuesto` con los siguientes valores:
 *   Se agregó la columna `TIPO_PRESUPUESTO` en la BD.
 *   El `DataLoader` asigna estos tipos por defecto (ej. "Comida" -> `NECESIDAD`).
 *   Esto permite calcular en tiempo real (en el endpoint `/api/presupuestos/ejecucion`) cuánto del presupuesto asignado a "Necesidades" se ha consumido basándose en las categorías de los movimientos registrados.
+
+### 4.3. Definiciones y Guía (Referencia para el Usuario)
+
+Para mantener la consistencia en el sistema 50/30/20, se aplicaron las siguientes definiciones:
+
+**A. NECESIDADES (50%)**: Gastos esenciales para la subsistencia y obligaciones contractuales. Si dejas de pagarlos, tienes consecuencias graves inmediatas.
+*   **Ejemplos**: 
+    *   Arriendo / Dividendo
+    *   Cuentas (Luz, Agua, Gas, Internet básico)
+    *   Supermercado (Alimentos básicos)
+    *   Transporte (Metro, Micro, Bencina para trabajo)
+    *   Salud y Medicamentos
+    *   Deudas mínimas (Cuotas de créditos)
+
+**B. DESEOS (30%)**: Gastos que mejoran la calidad de vida pero no son indispensables. Son "gustitos" o mejoras.
+*   **Ejemplos**:
+    *   Salir a comer / Delivery (vs. Cocinar en casa)
+    *   Suscripciones de Streaming (Netflix, Spotify)
+    *   Ropa y Accesorios (fuera de lo básico)
+    *   Viajes y Vacaciones
+    *   Regalos
+    *   Uber/Taxi (cuando hay transporte público)
+
+**C. AHORRO (20%)**: Dinero guardado para corto, mediano o largo plazo. (Gestionado principalmente a través de la funcionalidad de Metas, no categorías de gasto directo).

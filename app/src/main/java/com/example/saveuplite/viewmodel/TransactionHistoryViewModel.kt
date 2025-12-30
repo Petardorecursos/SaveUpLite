@@ -33,60 +33,77 @@ class TransactionHistoryViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(TransactionHistoryUiState())
     val uiState = _uiState.asStateFlow()
 
+    private val _selectedDate = MutableStateFlow<java.time.LocalDate?>(null)
+    val selectedDate = _selectedDate.asStateFlow()
+
     /**
-     * Carga la primera página de movimientos.
+     * Carga los movimientos. 
+     * Si hay fecha seleccionada, carga historial reciente (limit 1000) y filtra.
+     * Si no, usa paginación.
      */
     fun loadInitialMovements(rut: String) {
-        // Evita recargar si ya se está cargando.
         if (_uiState.value.isLoading) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, movements = emptyList()) } // Limpiar lista al recargar
 
             try {
-                val response = RetrofitClient.apiService.obtenerMovimientosPaginados(rut, page = 0, size = 50)
-
-                if (response.isSuccessful && response.body() != null) {
-                    val pageData = response.body()!!
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            movements = pageData.content,
-                            currentPage = pageData.currentPage,
-                            totalPages = pageData.totalPages
-                        )
+                if (_selectedDate.value != null) {
+                    // MODO FILTRO: Carga masiva y filtra en cliente
+                    // Nota: Idealmente el backend tendría endpoint por fechas. Usamos limit 1000 como 'batch' seguro.
+                    val response = RetrofitClient.apiService.obtenerMovimientosPorUsuario(rut, 1000)
+                    if (response.isSuccessful && response.body() != null) {
+                        val allMovs = response.body()!!
+                        val filtered = allMovs.filter { 
+                            val movDate = it.fecha.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                            val selDate = _selectedDate.value!!
+                            movDate.month == selDate.month && movDate.year == selDate.year
+                        }
+                        _uiState.update { it.copy(isLoading = false, movements = filtered, totalPages = 1, currentPage = 0) }
+                    } else {
+                         _uiState.update { it.copy(isLoading = false, errorMessage = "Error al cargar historial.") }
                     }
                 } else {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = "Error al cargar el historial.") }
+                    // MODO PAGINACIÓN (Default)
+                    val response = RetrofitClient.apiService.obtenerMovimientosPaginados(rut, page = 0, size = 50)
+                    if (response.isSuccessful && response.body() != null) {
+                        val pageData = response.body()!!
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                movements = pageData.content,
+                                currentPage = pageData.currentPage,
+                                totalPages = pageData.totalPages
+                            )
+                        }
+                    } else {
+                        _uiState.update { it.copy(isLoading = false, errorMessage = "Error al cargar historial.") }
+                    }
                 }
-            } catch (e: IOException) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Error de conexión.") }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Error inesperado: ${e.message}") }
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Error: ${e.message}") }
             }
         }
     }
 
     /**
      * Carga la siguiente página de movimientos.
+     * Deshabilitado si hay fecha seleccionada.
      */
     fun loadNextPage(rut: String) {
-        // Previene cargas múltiples si ya está cargando o si no hay más páginas.
+        if (_selectedDate.value != null) return // No paginar en modo filtro
         if (!_uiState.value.canLoadMore) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingNextPage = true) }
-
             try {
                 val nextPage = _uiState.value.currentPage + 1
                 val response = RetrofitClient.apiService.obtenerMovimientosPaginados(rut, page = nextPage, size = 50)
-
                 if (response.isSuccessful && response.body() != null) {
                     val pageData = response.body()!!
                     _uiState.update { currentState ->
                         currentState.copy(
                             isLoadingNextPage = false,
-                            // Añade los nuevos movimientos a la lista existente.
                             movements = currentState.movements + pageData.content,
                             currentPage = pageData.currentPage,
                             totalPages = pageData.totalPages
@@ -99,6 +116,11 @@ class TransactionHistoryViewModel : ViewModel() {
                 _uiState.update { it.copy(isLoadingNextPage = false) }
             }
         }
+    }
+
+    fun setSelectedDate(date: java.time.LocalDate?, rut: String) {
+        _selectedDate.value = date
+        loadInitialMovements(rut)
     }
 
     fun clearError() {
